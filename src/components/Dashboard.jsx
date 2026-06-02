@@ -303,6 +303,25 @@ export default function Dashboard({ session, onSignOut }) {
     () => localStorage.getItem("easy_moneytoring_n8n_nickname") || "",
   );
 
+  const [activeTheme, setActiveTheme] = useState(
+    () => localStorage.getItem("easy_moneytoring_theme") || "emerald",
+  );
+
+  useEffect(() => {
+    const themeColors = {
+      emerald: { hex: "#10b981", rgb: "16, 185, 129" },
+      indigo: { hex: "#6366f1", rgb: "99, 102, 241" },
+      rose: { hex: "#f43f5e", rgb: "244, 63, 94" },
+      amber: { hex: "#f59e0b", rgb: "245, 158, 11" },
+      sky: { hex: "#0ea5e9", rgb: "14, 165, 233" },
+      violet: { hex: "#8b5cf6", rgb: "139, 92, 246" },
+    };
+    const t = themeColors[activeTheme] || themeColors.emerald;
+    document.documentElement.style.setProperty("--theme-color", t.hex);
+    document.documentElement.style.setProperty("--theme-color-rgb", t.rgb);
+    localStorage.setItem("easy_moneytoring_theme", activeTheme);
+  }, [activeTheme]);
+
   // Expense Editing States
   const [editingExpense, setEditingExpense] = useState(null);
   const [editExpenseDesc, setEditExpenseDesc] = useState("");
@@ -430,14 +449,17 @@ export default function Dashboard({ session, onSignOut }) {
 
       const { error: upsertError } = await supabase
         .from("custom_categories")
-        .upsert({
-          user_id: session.user.id,
-          name: key,
-          color: catData.color,
-          icon: catData.icon,
-          keywords: cleanKeywords,
-          display_order: existingOrder,
-        });
+        .upsert(
+          {
+            user_id: session.user.id,
+            name: key,
+            color: catData.color,
+            icon: catData.icon,
+            keywords: cleanKeywords,
+            display_order: existingOrder,
+          },
+          { onConflict: "user_id,name" }
+        );
 
       if (upsertError) {
         if (
@@ -1666,6 +1688,8 @@ alter table public.custom_categories add column if not exists display_order inte
                     onSendTestWebhook={handleSendTestWebhook}
                     onSaveCategory={handleSaveCategory}
                     onReorderCategories={handleReorderCategories}
+                    activeTheme={activeTheme}
+                    onThemeChange={setActiveTheme}
                   />
                 </Suspense>
               )}
@@ -1951,7 +1975,7 @@ alter table public.custom_categories add column if not exists display_order inte
                     type="submit"
                     className="flex-1 hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
                     style={{
-                      background: "linear-gradient(to right, #10b981, #14b8a6)",
+                      background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                       color: "#022c22",
                       padding: "12px 20px",
                       borderRadius: "16px",
@@ -2125,7 +2149,7 @@ alter table public.custom_categories add column if not exists display_order inte
                   type="submit"
                   className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
                   style={{
-                    background: "linear-gradient(to right, #10b981, #14b8a6)",
+                    background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                     color: "#022c22",
                     padding: "12px 20px",
                     borderRadius: "16px",
@@ -2404,7 +2428,7 @@ alter table public.custom_categories add column if not exists display_order inte
             setProfileView("profile");
           }}
           selected={activeTab === "home"}
-          style={{ "--color-selected": "#10b981", "--color": "#64748b" }}
+          style={{ "--color-selected": "var(--theme-color)", "--color": "#64748b" }}
           className="transition-all"
         >
           <IonIcon
@@ -2423,7 +2447,7 @@ alter table public.custom_categories add column if not exists display_order inte
             setProfileView("profile");
           }}
           selected={activeTab === "cashflow"}
-          style={{ "--color-selected": "#10b981", "--color": "#64748b" }}
+          style={{ "--color-selected": "var(--theme-color)", "--color": "#64748b" }}
           className="transition-all"
         >
           <IonIcon
@@ -2457,7 +2481,7 @@ alter table public.custom_categories add column if not exists display_order inte
             setProfileView("profile");
           }}
           selected={activeTab === "history"}
-          style={{ "--color-selected": "#10b981", "--color": "#64748b" }}
+          style={{ "--color-selected": "var(--theme-color)", "--color": "#64748b" }}
           className="transition-all"
         >
           <IonIcon
@@ -2476,7 +2500,7 @@ alter table public.custom_categories add column if not exists display_order inte
             setProfileView("profile");
           }}
           selected={activeTab === "profile"}
-          style={{ "--color-selected": "#10b981", "--color": "#64748b" }}
+          style={{ "--color-selected": "var(--theme-color)", "--color": "#64748b" }}
           className="transition-all"
         >
           <div
@@ -2505,7 +2529,7 @@ alter table public.custom_categories add column if not exists display_order inte
           bottom: "35px",
           left: "50%",
           transform: "translateX(-50%)",
-          background: "linear-gradient(to right, #10b981, #14b8a6)",
+          background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
         }}
       >
         <IonIcon

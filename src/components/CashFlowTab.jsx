@@ -210,7 +210,7 @@ export default function CashFlowTab({
               border: "none",
               background: isAddingBaseline
                 ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                : "linear-gradient(to top right, #10b981, #2dd4bf)",
+                : "linear-gradient(to top right, var(--theme-color), var(--color-teal-400))",
               boxShadow: isAddingBaseline
                 ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
                 : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
@@ -308,7 +308,7 @@ export default function CashFlowTab({
               type="submit"
               className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
               style={{
-                background: "linear-gradient(to right, #10b981, #14b8a6)",
+                background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                 color: "#022c22",
                 padding: "12px 20px",
                 borderRadius: "16px",
@@ -512,7 +512,7 @@ export default function CashFlowTab({
               border: "none",
               background: isAddingFixed
                 ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                : "linear-gradient(to top right, #10b981, #2dd4bf)",
+                : "linear-gradient(to top right, var(--theme-color), var(--color-teal-400))",
               boxShadow: isAddingFixed
                 ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
                 : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
@@ -644,7 +644,7 @@ export default function CashFlowTab({
               type="submit"
               className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
               style={{
-                background: "linear-gradient(to right, #10b981, #14b8a6)",
+                background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                 color: "#022c22",
                 padding: "12px 20px",
                 borderRadius: "16px",
@@ -872,7 +872,7 @@ export default function CashFlowTab({
               border: "none",
               background: isAddingIncome
                 ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                : "linear-gradient(to top right, #10b981, #2dd4bf)",
+                : "linear-gradient(to top right, var(--theme-color), var(--color-teal-400))",
               boxShadow: isAddingIncome
                 ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
                 : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
@@ -970,7 +970,7 @@ export default function CashFlowTab({
               type="submit"
               className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
               style={{
-                background: "linear-gradient(to right, #10b981, #14b8a6)",
+                background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                 color: "#022c22",
                 padding: "12px 20px",
                 borderRadius: "16px",

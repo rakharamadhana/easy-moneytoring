@@ -176,4 +176,20 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
   border-radius: 8px !important;
 }
 
+/* Dynamic theme variables */
+:root {
+  --theme-color: #10b981;
+  --theme-color-rgb: 16, 185, 129;
+
+  /* Overwrite Tailwind v4 color variables dynamically to support selected accent color */
+  --color-emerald-200: rgba(var(--theme-color-rgb), 0.6) !important;
+  --color-emerald-300: rgba(var(--theme-color-rgb), 0.8) !important;
+  --color-emerald-400: var(--theme-color) !important;
+  --color-emerald-500: var(--theme-color) !important;
+  --color-emerald-600: rgba(var(--theme-color-rgb), 0.9) !important;
+  
+  /* Map gradient color shift for seamless UI compatibility */
+  --color-teal-400: rgba(var(--theme-color-rgb), 0.85) !important;
+}
+
 

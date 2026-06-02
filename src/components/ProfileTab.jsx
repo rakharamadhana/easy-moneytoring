@@ -36,6 +36,8 @@ export default function ProfileTab({
   onSaveCategory,
   onDeleteCategory,
   onReorderCategories,
+  activeTheme = "emerald",
+  onThemeChange,
 }) {
   const [profileView, setProfileView] = useState("profile"); // 'profile', 'settings', or 'categories'
 
@@ -243,6 +245,64 @@ export default function ProfileTab({
             </p>
           </div>
 
+          {/* Dominant Theme Color Card */}
+          <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
+            <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
+              App Dominant Color Accent
+            </label>
+
+            <div className="flex flex-wrap gap-3.5 py-1 justify-center sm:justify-start">
+              {[
+                { key: "emerald", name: "Emerald", hex: "#10b981" },
+                { key: "indigo", name: "Indigo", hex: "#6366f1" },
+                { key: "rose", name: "Rose", hex: "#f43f5e" },
+                { key: "amber", name: "Amber", hex: "#f59e0b" },
+                { key: "sky", name: "Sky", hex: "#0ea5e9" },
+                { key: "violet", name: "Violet", hex: "#8b5cf6" },
+              ].map((col) => {
+                const isSelected = activeTheme === col.key;
+                return (
+                  <button
+                    key={col.key}
+                    type="button"
+                    onClick={() => onThemeChange && onThemeChange(col.key)}
+                    className="flex flex-col items-center gap-1.5 focus:outline-none group select-none cursor-pointer"
+                    title={col.name}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 relative border-2"
+                      style={{
+                        backgroundColor: col.hex,
+                        borderColor: isSelected ? "#ffffff" : "transparent",
+                        boxShadow: isSelected
+                          ? `0 0 15px ${col.hex}cc`
+                          : "none",
+                        transform: isSelected ? "scale(1.08)" : "none",
+                      }}
+                    >
+                      {isSelected && (
+                        <IonIcon
+                          icon={checkmarkOutline}
+                          className="w-5 h-5 text-slate-950 stroke-[3]"
+                        />
+                      )}
+                    </div>
+                    <span
+                      className={`text-[9px] font-black uppercase tracking-wider transition-colors ${
+                        isSelected ? "text-white" : "text-slate-500 group-hover:text-slate-300"
+                      }`}
+                    >
+                      {col.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-slate-400 font-semibold leading-normal italic px-1">
+              Customize the dominant brand accent color across your dashboard tabs, buttons, alerts, and graphs.
+            </p>
+          </div>
+
           {/* Custom Categories Trigger Card */}
           <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
             <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
@@ -279,7 +339,7 @@ export default function ProfileTab({
                 onIonChange={(e) => onN8nToggle(e.detail.checked)}
                 style={{
                   "--background": "rgba(255,255,255,0.05)",
-                  "--background-checked": "#10b981",
+                  "--background-checked": "var(--theme-color)",
                   "--handle-background-checked": "#022c22",
                 }}
               />
@@ -617,7 +677,7 @@ export default function ProfileTab({
                 type="submit"
                 className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
                 style={{
-                  background: "linear-gradient(to right, #10b981, #14b8a6)",
+                  background: "linear-gradient(to right, var(--theme-color), var(--color-teal-400))",
                   color: "#022c22",
                   padding: "14px 20px",
                   borderRadius: "16px",
