@@ -1,10 +1,169 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { supabase } from "../supabaseClient";
 import { parseQuickInput, categories } from "../utils/categorizer";
-import HomeTab from "./HomeTab";
-import CashFlowTab from "./CashFlowTab";
-import HistoryTab from "./HistoryTab";
-import ProfileTab from "./ProfileTab";
+
+const HomeTab = lazy(() => import("./HomeTab"));
+const CashFlowTab = lazy(() => import("./CashFlowTab"));
+const HistoryTab = lazy(() => import("./HistoryTab"));
+const ProfileTab = lazy(() => import("./ProfileTab"));
+
+// ---------------- Skeleton Placeholders for Lazy Loading ----------------
+function HomeTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse">
+      {/* Remaining Budget Card Skeleton */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 h-40 flex flex-col justify-between">
+        <div>
+          <div className="h-3.5 bg-white/10 rounded-md w-1/3 mb-3" />
+          <div className="h-9 bg-white/10 rounded-md w-2/3 mb-2.5" />
+          <div className="h-4 bg-white/10 rounded-md w-1/2" />
+        </div>
+        <div className="h-4 bg-white/10 rounded-full w-full mt-4" style={{ height: "18px" }} />
+      </div>
+
+      {/* Category Expenditures Card Skeleton */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 flex flex-col gap-4">
+        <div className="h-4 bg-white/10 rounded-md w-1/4 mb-1" />
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/10" />
+                  <div className="h-3.5 bg-white/10 rounded-md w-24" />
+                </div>
+                <div className="h-3.5 bg-white/10 rounded-md w-16" />
+              </div>
+              <div className="h-1 bg-white/10 rounded-full w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CashFlowTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse">
+      {/* Overview Stat Cards */}
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="glassmorphism rounded-2xl p-4 border border-white/5 bg-slate-950/20 h-24 flex flex-col justify-between">
+            <div className="h-3 bg-white/10 rounded-md w-2/3" />
+            <div className="h-6 bg-white/10 rounded-md w-5/6" />
+          </div>
+        ))}
+      </div>
+      
+      {/* baseline / fixed card 1 */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 flex flex-col gap-4">
+        <div className="h-4 bg-white/10 rounded-md w-1/3 mb-1" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="flex justify-between items-center border-b border-white/5 pb-2">
+              <div className="flex flex-col gap-1.5 w-1/3">
+                <div className="h-3.5 bg-white/10 rounded-md w-full" />
+                <div className="h-2.5 bg-white/10 rounded-md w-2/3" />
+              </div>
+              <div className="h-4 bg-white/10 rounded-md w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* baseline / fixed card 2 */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 flex flex-col gap-4">
+        <div className="h-4 bg-white/10 rounded-md w-1/3 mb-1" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="flex justify-between items-center border-b border-white/5 pb-2">
+              <div className="flex flex-col gap-1.5 w-1/3">
+                <div className="h-3.5 bg-white/10 rounded-md w-full" />
+                <div className="h-2.5 bg-white/10 rounded-md w-2/3" />
+              </div>
+              <div className="h-4 bg-white/10 rounded-md w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse">
+      {/* Spending trends chart card skeleton */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 flex flex-col gap-4">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex flex-col gap-1.5 w-1/3">
+            <div className="h-3 bg-white/10 rounded-md w-2/3" />
+            <div className="h-5 bg-white/10 rounded-md w-full" />
+          </div>
+          <div className="w-24 h-6 bg-white/10 rounded-xl" />
+        </div>
+        {/* Mock Chart Area */}
+        <div className="w-full aspect-[500/220] bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
+          <div className="h-8 w-2/3 bg-white/5 rounded-full" />
+        </div>
+        {/* Stats card */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-950/40 p-3 rounded-2xl border border-white/5">
+          <div className="h-8 bg-white/10 rounded-lg" />
+          <div className="h-8 bg-white/10 rounded-lg" />
+          <div className="h-8 bg-white/10 rounded-lg" />
+        </div>
+      </div>
+
+      {/* Filter and recent transactions skeleton */}
+      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 flex flex-col gap-4">
+        {/* Filter bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="h-10 bg-white/10 rounded-xl w-full" />
+          <div className="h-10 bg-white/10 rounded-xl w-full" />
+          <div className="h-10 bg-white/10 rounded-xl w-full" />
+        </div>
+        {/* Transactions list */}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex justify-between items-center border-b border-white/5 pb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10" />
+                <div className="flex flex-col gap-1.5">
+                  <div className="h-3.5 bg-white/10 rounded-md w-28" />
+                  <div className="h-2.5 bg-white/10 rounded-md w-20" />
+                </div>
+              </div>
+              <div className="h-4 bg-white/10 rounded-md w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileTabSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse pb-12">
+      {/* Avatar Card */}
+      <div className="glassmorphism rounded-3xl p-6 border border-white/5 bg-slate-950/20 flex flex-col items-center justify-center gap-4">
+        {/* Big Avatar circle */}
+        <div className="w-20 h-20 rounded-full bg-white/10" />
+        <div className="space-y-2 flex flex-col items-center w-full">
+          <div className="h-3 bg-white/10 rounded-md w-1/4" />
+          <div className="h-5 bg-white/10 rounded-md w-1/2" />
+        </div>
+      </div>
+
+      {/* Buttons list */}
+      <div className="flex flex-col gap-3">
+        <div className="h-12 bg-white/10 rounded-2xl w-full" />
+        <div className="h-12 bg-white/10 rounded-2xl w-full" />
+      </div>
+    </div>
+  );
+}
 import {
   IonPage,
   IonContent,
@@ -1056,6 +1215,46 @@ alter table public.custom_categories add column if not exists display_order inte
 
       if (error) throw error;
       setExpenses((prev) => [data, ...prev]);
+
+      // Adaptive learning: Save description as keyword if category was manually changed/different
+      const chosenCategoryName = selectedQuickCategory ? selectedQuickCategory.name : parsed.category.name;
+      if (
+        chosenCategoryName !== "Other" &&
+        parsed.category.name !== chosenCategoryName &&
+        userCategories[chosenCategoryName]
+      ) {
+        const cat = userCategories[chosenCategoryName];
+        const existingKeywords = cat.keywords || [];
+        const cleanKeyword = desc.toLowerCase().trim();
+        const hasKeyword = existingKeywords.some(
+          (k) => k.toLowerCase().trim() === cleanKeyword
+        );
+
+        if (!hasKeyword) {
+          const newKeywords = [...existingKeywords, desc.trim()];
+          const updatedCategories = {
+            ...userCategories,
+            [chosenCategoryName]: {
+              ...cat,
+              keywords: newKeywords,
+            },
+          };
+          setUserCategories(updatedCategories);
+
+          // Update in DB (fire-and-forget in background)
+          supabase
+            .from("custom_categories")
+            .update({ keywords: newKeywords })
+            .eq("user_id", session.user.id)
+            .eq("name", chosenCategoryName)
+            .then(({ error: kwErr }) => {
+              if (kwErr) {
+                console.warn("Failed to auto-save learned keyword to category:", kwErr);
+              }
+            });
+        }
+      }
+
       setQuickInput("");
       setQuickLogDate(getLocalISODatetime());
       setSelectedQuickCategory(null);
@@ -1338,7 +1537,7 @@ alter table public.custom_categories add column if not exists display_order inte
                 <button
                   type="button"
                   onClick={handleHeaderBack}
-                  className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
+                  className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
                   aria-label="Go back"
                 >
                   <IonIcon icon={arrowBackOutline} className="h-4.5 w-4.5" />
@@ -1362,15 +1561,7 @@ alter table public.custom_categories add column if not exists display_order inte
       <IonContent scrollY={true} style={{ "--background": "#080b11" }}>
         <main className="max-w-4xl mx-auto px-4 pt-6 pb-4 flex flex-col gap-6">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-3">
-              <IonSpinner
-                name="crescent"
-                className="w-8 h-8 text-emerald-400"
-              />
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-                Retrieving Accounts...
-              </p>
-            </div>
+            <HomeTabSkeleton />
           ) : (
             <>
               {/* Decorative Blur Blobs */}
@@ -1378,98 +1569,105 @@ alter table public.custom_categories add column if not exists display_order inte
               <div className="absolute top-1/3 left-1/4 w-60 h-60 rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none" />
 
               {/* 1. HOME TAB */}
-              {/* 1. HOME TAB */}
               {activeTab === "home" && (
-                <HomeTab
-                  remainingBudget={remainingBudget}
-                  totalBudget={totalBudget}
-                  currentMonthName={currentMonthName}
-                  formatCurrency={formatCurrency}
-                  totalSpent={totalSpent}
-                  categoryMap={categoryMap}
-                  categoryTotals={categoryTotals}
-                  getCategoryColor={getCategoryColor}
-                  getCategoryIcon={getCategoryIcon}
-                  setSelectedDetailCategory={setSelectedDetailCategory}
-                  remainingPercentage={remainingPercentage}
-                  onReorderCategories={handleReorderCategories}
-                />
+                <Suspense fallback={<HomeTabSkeleton />}>
+                  <HomeTab
+                    remainingBudget={remainingBudget}
+                    totalBudget={totalBudget}
+                    currentMonthName={currentMonthName}
+                    formatCurrency={formatCurrency}
+                    totalSpent={totalSpent}
+                    categoryMap={categoryMap}
+                    categoryTotals={categoryTotals}
+                    getCategoryColor={getCategoryColor}
+                    getCategoryIcon={getCategoryIcon}
+                    setSelectedDetailCategory={setSelectedDetailCategory}
+                    remainingPercentage={remainingPercentage}
+                    onReorderCategories={handleReorderCategories}
+                  />
+                </Suspense>
               )}
 
               {/* 2. CASH FLOW TAB */}
               {activeTab === "cashflow" && (
-                <CashFlowTab
-                  baselineIncomes={baselineIncomes}
-                  fixedExpenses={fixedExpenses}
-                  additionalIncome={additionalIncome}
-                  currentDay={currentDay}
-                  formatCurrency={formatCurrency}
-                  totalBaseline={totalBaseline}
-                  totalBaselineConfigured={totalBaselineConfigured}
-                  totalFixedExpenses={totalFixedExpenses}
-                  totalAdditional={totalAdditional}
-                  sortedCategoriesList={sortedCategoriesList}
-                  onAddBaselineIncome={handleAddBaselineIncome}
-                  onSaveEditBaseline={handleSaveEditBaseline}
-                  onDeleteBaselineIncome={handleDeleteBaselineIncome}
-                  onAddFixedExpense={handleAddFixedExpense}
-                  onSaveEditFixed={handleSaveEditFixed}
-                  onDeleteFixedExpense={handleDeleteFixedExpense}
-                  onAddAdditionalIncome={handleAddAdditionalIncome}
-                  onSaveEditAdditional={handleSaveEditAdditional}
-                  onDeleteAdditionalIncome={handleDeleteAdditionalIncome}
-                />
+                <Suspense fallback={<CashFlowTabSkeleton />}>
+                  <CashFlowTab
+                    baselineIncomes={baselineIncomes}
+                    fixedExpenses={fixedExpenses}
+                    additionalIncome={additionalIncome}
+                    currentDay={currentDay}
+                    formatCurrency={formatCurrency}
+                    totalBaseline={totalBaseline}
+                    totalBaselineConfigured={totalBaselineConfigured}
+                    totalFixedExpenses={totalFixedExpenses}
+                    totalAdditional={totalAdditional}
+                    sortedCategoriesList={sortedCategoriesList}
+                    onAddBaselineIncome={handleAddBaselineIncome}
+                    onSaveEditBaseline={handleSaveEditBaseline}
+                    onDeleteBaselineIncome={handleDeleteBaselineIncome}
+                    onAddFixedExpense={handleAddFixedExpense}
+                    onSaveEditFixed={handleSaveEditFixed}
+                    onDeleteFixedExpense={handleDeleteFixedExpense}
+                    onAddAdditionalIncome={handleAddAdditionalIncome}
+                    onSaveEditAdditional={handleSaveEditAdditional}
+                    onDeleteAdditionalIncome={handleDeleteAdditionalIncome}
+                  />
+                </Suspense>
               )}
 
               {/* 3. HISTORY TAB */}
               {activeTab === "history" && (
-                <HistoryTab
-                  expenses={expenses}
-                  formatCurrency={formatCurrency}
-                  currentMonthName={currentMonthName}
-                  sortedCategoriesList={sortedCategoriesList}
-                  getCategoryConfig={getCategoryConfig}
-                  getCategoryIcon={getCategoryIcon}
-                  onStartEditExpense={handleStartEditExpense}
-                  onDeleteExpense={handleDeleteExpense}
-                  onUpdateExpenseCategory={handleUpdateExpenseCategory}
-                />
+                <Suspense fallback={<HistoryTabSkeleton />}>
+                  <HistoryTab
+                    expenses={expenses}
+                    formatCurrency={formatCurrency}
+                    currentMonthName={currentMonthName}
+                    sortedCategoriesList={sortedCategoriesList}
+                    getCategoryConfig={getCategoryConfig}
+                    getCategoryIcon={getCategoryIcon}
+                    onStartEditExpense={handleStartEditExpense}
+                    onDeleteExpense={handleDeleteExpense}
+                    onUpdateExpenseCategory={handleUpdateExpenseCategory}
+                  />
+                </Suspense>
               )}
 
               {/* 4. PROFILE TAB */}
               {activeTab === "profile" && (
-                <ProfileTab
-                  session={session}
-                  onSignOut={onSignOut}
-                  selectedCurrency={selectedCurrency}
-                  onCurrencyChange={(newCurrency) => {
-                    setSelectedCurrency(newCurrency);
-                    localStorage.setItem("easy_moneytoring_currency", newCurrency);
-                  }}
-                  userCategories={userCategories}
-                  getCategoryIcon={getCategoryIcon}
-                  colorHexMap={colorHexMap}
-                  iconMap={iconMap}
-                  sortedCategoriesList={sortedCategoriesList}
-                  n8nEnabled={n8nEnabled}
-                  onN8nToggle={(checked) => {
-                    setN8nEnabled(checked);
-                    localStorage.setItem("easy_moneytoring_n8n_enabled", String(checked));
-                  }}
-                  n8nUrl={n8nUrl}
-                  onN8nUrlChange={(val) => {
-                    setN8nUrl(val);
-                    localStorage.setItem("easy_moneytoring_n8n_url", val);
-                  }}
-                  n8nNickname={n8nNickname}
-                  onN8nNicknameChange={(val) => {
-                    setN8nNickname(val);
-                    localStorage.setItem("easy_moneytoring_n8n_nickname", val);
-                  }}
-                  onSendTestWebhook={handleSendTestWebhook}
-                  onSaveCategory={handleSaveCategory}
-                  onReorderCategories={handleReorderCategories}
-                />
+                <Suspense fallback={<ProfileTabSkeleton />}>
+                  <ProfileTab
+                    session={session}
+                    onSignOut={onSignOut}
+                    selectedCurrency={selectedCurrency}
+                    onCurrencyChange={(newCurrency) => {
+                      setSelectedCurrency(newCurrency);
+                      localStorage.setItem("easy_moneytoring_currency", newCurrency);
+                    }}
+                    userCategories={userCategories}
+                    getCategoryIcon={getCategoryIcon}
+                    colorHexMap={colorHexMap}
+                    iconMap={iconMap}
+                    sortedCategoriesList={sortedCategoriesList}
+                    n8nEnabled={n8nEnabled}
+                    onN8nToggle={(checked) => {
+                      setN8nEnabled(checked);
+                      localStorage.setItem("easy_moneytoring_n8n_enabled", String(checked));
+                    }}
+                    n8nUrl={n8nUrl}
+                    onN8nUrlChange={(val) => {
+                      setN8nUrl(val);
+                      localStorage.setItem("easy_moneytoring_n8n_url", val);
+                    }}
+                    n8nNickname={n8nNickname}
+                    onN8nNicknameChange={(val) => {
+                      setN8nNickname(val);
+                      localStorage.setItem("easy_moneytoring_n8n_nickname", val);
+                    }}
+                    onSendTestWebhook={handleSendTestWebhook}
+                    onSaveCategory={handleSaveCategory}
+                    onReorderCategories={handleReorderCategories}
+                  />
+                </Suspense>
               )}
             </>
           )}
@@ -1607,7 +1805,7 @@ alter table public.custom_categories add column if not exists display_order inte
                   </span>
                   <button
                     onClick={() => setEditingExpense(null)}
-                    className="p-1.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
+                    className="p-1.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
                   >
                     <IonIcon icon={closeOutline} className="w-4 h-4 block" />
                   </button>
@@ -1810,7 +2008,7 @@ alter table public.custom_categories add column if not exists display_order inte
                       setIsOpenQuickLog(false);
                       setQuickInput("");
                     }}
-                    className="p-1.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
+                    className="p-1.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
                   >
                     <IonIcon icon={closeOutline} className="w-4 h-4 block" />
                   </button>
@@ -2028,7 +2226,7 @@ alter table public.custom_categories add column if not exists display_order inte
                       </div>
                       <button
                         onClick={() => setSelectedDetailCategory(null)}
-                        className="p-1.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
+                        className="p-1.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
                       >
                         <IonIcon
                           icon={closeOutline}
@@ -2107,7 +2305,7 @@ alter table public.custom_categories add column if not exists display_order inte
                                 onClick={() =>
                                   handleDeleteFixedExpense(bill.id)
                                 }
-                                className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-500 hover:text-rose-400 active:scale-95 transition-all cursor-pointer flex"
+                                className="p-1.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-500 hover:text-rose-400 active:scale-95 transition-all cursor-pointer flex"
                                 title="Delete recurring bill"
                               >
                                 <IonIcon
@@ -2153,7 +2351,7 @@ alter table public.custom_categories add column if not exists display_order inte
                               </span>
                               <button
                                 onClick={() => handleDeleteExpense(expense.id)}
-                                className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-500 hover:text-rose-400 active:scale-95 transition-all cursor-pointer flex"
+                                className="p-1.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-500 hover:text-rose-400 active:scale-95 transition-all cursor-pointer flex"
                                 title="Delete transaction"
                               >
                                 <IonIcon

@@ -410,13 +410,13 @@ export default function CashFlowTab({
                       <button
                         type="button"
                         onClick={() => setEditingBaselineId(null)}
-                        className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"
+                        className="p-1.5 rounded-lg rounded-btn-square bg-white/5 text-slate-400 hover:text-white"
                       >
                         <IonIcon icon={closeOutline} className="w-4 h-4" />
                       </button>
                       <button
                         type="submit"
-                        className="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
+                        className="p-1.5 rounded-lg rounded-btn-square bg-emerald-500 text-slate-950 font-bold"
                       >
                         <IonIcon
                           icon={checkmarkOutline}
@@ -459,7 +459,7 @@ export default function CashFlowTab({
                           <div className="flex items-center gap-1 transition-all">
                             <button
                               onClick={() => startEditBaseline(income)}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
+                              className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
                               aria-label={`Edit ${income.description}`}
                               title="Edit"
                             >
@@ -470,7 +470,7 @@ export default function CashFlowTab({
                             </button>
                             <button
                               onClick={() => onDeleteBaselineIncome(income.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
+                              className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
                               aria-label={`Delete ${income.description}`}
                               title="Delete"
                             >
@@ -779,13 +779,13 @@ export default function CashFlowTab({
                         <button
                           type="button"
                           onClick={() => setEditingFixedId(null)}
-                          className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"
+                          className="p-1.5 rounded-lg rounded-btn-square bg-white/5 text-slate-400 hover:text-white"
                         >
                           <IonIcon icon={closeOutline} className="w-4 h-4" />
                         </button>
                         <button
                           type="submit"
-                          className="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
+                          className="p-1.5 rounded-lg rounded-btn-square bg-emerald-500 text-slate-950 font-bold"
                         >
                           <IonIcon
                             icon={checkmarkOutline}
@@ -820,7 +820,7 @@ export default function CashFlowTab({
                         <div className="flex items-center gap-1 transition-all">
                           <button
                             onClick={() => startEditFixed(bill)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
+                            className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
                             aria-label={`Edit ${bill.description}`}
                             title="Edit"
                           >
@@ -831,7 +831,7 @@ export default function CashFlowTab({
                           </button>
                           <button
                             onClick={() => onDeleteFixedExpense(bill.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
+                            className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
                             aria-label={`Delete ${bill.description}`}
                             title="Delete"
                           >
@@ -1071,13 +1071,13 @@ export default function CashFlowTab({
                         <button
                           type="button"
                           onClick={() => setEditingAdditionalId(null)}
-                          className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"
+                          className="p-1.5 rounded-lg rounded-btn-square bg-white/5 text-slate-400 hover:text-white"
                         >
                           <IonIcon icon={closeOutline} className="w-4 h-4" />
                         </button>
                         <button
                           type="submit"
-                          className="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
+                          className="p-1.5 rounded-lg rounded-btn-square bg-emerald-500 text-slate-950 font-bold"
                         >
                           <IonIcon
                             icon={checkmarkOutline}
@@ -1107,7 +1107,7 @@ export default function CashFlowTab({
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => startEditAdditional(item)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
+                            className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
                             aria-label={`Edit ${item.description}`}
                             title="Edit"
                           >
@@ -1115,7 +1115,7 @@ export default function CashFlowTab({
                           </button>
                           <button
                             onClick={() => onDeleteAdditionalIncome(item.id)}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
+                            className="flex h-7 w-7 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
                             aria-label={`Delete ${item.description}`}
                             title="Delete"
                           >

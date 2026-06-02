@@ -458,7 +458,7 @@ export default function ProfileTab({
                         <button
                           type="button"
                           onClick={() => handleStartEditCategory(key)}
-                          className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
+                          className="p-2.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
                           title="Edit Category"
                         >
                           <IonIcon icon={createOutline} className="w-4.5 h-4.5 block" />
@@ -467,7 +467,7 @@ export default function ProfileTab({
                           <button
                             type="button"
                             onClick={() => onDeleteCategory(key)}
-                            className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-rose-400 transition-all cursor-pointer flex"
+                            className="p-2.5 rounded-xl rounded-btn-square bg-white/5 border border-white/5 text-slate-400 hover:text-rose-400 transition-all cursor-pointer flex"
                             title="Delete Category"
                           >
                             <IonIcon icon={trashOutline} className="w-4.5 h-4.5 block" />

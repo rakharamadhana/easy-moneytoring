@@ -638,7 +638,7 @@ export default function HistoryTab({
                               </span>
                               <button
                                 onClick={() => onStartEditExpense(expense)}
-                                className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white transition-all active:scale-90 cursor-pointer"
+                                className="flex h-6 w-6 items-center justify-center rounded-xl rounded-btn-square border border-white/5 bg-white/5 text-slate-400 hover:text-white transition-all active:scale-90 cursor-pointer"
                                 title="Edit transaction"
                               >
                                 <IonIcon

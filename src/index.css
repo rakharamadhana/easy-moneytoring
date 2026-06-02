@@ -171,3 +171,9 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
   color: #ffffff !important;
 }
 
+/* Bulletproof rounding for small action/icon buttons */
+.rounded-btn-square {
+  border-radius: 8px !important;
+}
+
+
