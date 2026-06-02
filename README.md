@@ -165,4 +165,4 @@ Easy Moneytoring can be compiled into a native mobile app via Capacitor:
 ---
 
 ## 🔗 n8n Automations Setup
-Please review the step-by-step instructions and copy-paste-ready **n8n Workflow JSONs** inside your local [n8n_integration_guide.md](./C:/Users/User/.gemini/antigravity-ide/brain/178ce7e5-e853-4edb-bc7c-2e32c4973f97/n8n_integration_guide.md) to set up Discord/Slack broadcasts when variable expenses are logged!
+Please review the step-by-step instructions and copy-paste-ready **n8n Workflow JSONs** inside your local [n8n_integration_guide.md](./n8n_integration_guide.md) to set up Discord/Slack broadcasts when variable expenses are logged!
