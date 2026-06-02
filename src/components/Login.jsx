@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { IonPage, IonContent, IonCard, IonItem, IonInput, IonButton, IonIcon, IonSpinner } from '@ionic/react';
 import { walletOutline, mailOutline, lockClosedOutline, arrowForwardOutline, alertCircleOutline, checkmarkCircleOutline } from 'ionicons/icons';
@@ -10,6 +10,11 @@ export default function Login({ onAuthSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // Synchronize browser tab document title with Login sub-view
+  useEffect(() => {
+    document.title = isSignUp ? 'Easy Moneytoring — Create Account' : 'Easy Moneytoring — Sign In';
+  }, [isSignUp]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,8 +73,8 @@ export default function Login({ onAuthSuccess }) {
           <div className="w-full max-w-md relative z-10">
             {/* Elegant Brand Header */}
             <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.25)] mb-3">
-                <IonIcon icon={walletOutline} style={{ fontSize: '32px' }} />
+              <div className="inline-flex items-center justify-center p-2.5 rounded-2xl bg-slate-950/50 border border-white/5 shadow-[0_0_30px_rgba(16,185,129,0.15)] mb-3">
+                <img src="/logo.png" className="w-12 h-12 object-contain" alt="Easy Moneytoring Logo" />
               </div>
               <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent font-['Outfit']">
                 Easy Moneytoring

@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import { parseQuickInput, categories } from "../utils/categorizer";
+import HomeTab from "./HomeTab";
+import CashFlowTab from "./CashFlowTab";
+import HistoryTab from "./HistoryTab";
+import ProfileTab from "./ProfileTab";
 import {
   IonPage,
   IonContent,
@@ -104,371 +108,6 @@ const colorHexMap = {
   slate: "#94a3b8",
 };
 
-function DailyConsumptionChart({ expenses, formatCurrency, currentMonthName }) {
-  const [chartMode, setChartMode] = useState("daily"); // 'daily' or 'cumulative'
-  const [hoveredIndex, setHoveredIndex] = useState(null);
-
-  // 1. Calculate active year & month dynamically
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const totalDays = new Date(year, month + 1, 0).getDate();
-
-  // 2. Compute daily variable spending values
-  const dailyValues = Array.from({ length: totalDays }, (_, i) => {
-    const day = i + 1;
-    const totalForDay = expenses
-      .filter((exp) => {
-        if (!exp.date) return false;
-        // Parse date string safe from timezone shifts
-        const parts = exp.date.split("-");
-        if (parts.length < 3) return false;
-        const expYear = parseInt(parts[0]);
-        const expMonth = parseInt(parts[1]) - 1; // 0-indexed
-        const expDay = parseInt(parts[2]);
-        return expDay === day && expMonth === month && expYear === year;
-      })
-      .reduce((sum, exp) => sum + parseFloat(exp.amount), 0);
-    return { day, amount: totalForDay };
-  });
-
-  // 3. Compute cumulative values
-  let runningSum = 0;
-  const cumulativeValues = dailyValues.map((item) => {
-    runningSum += item.amount;
-    return { day: item.day, amount: runningSum };
-  });
-
-  const activeData = chartMode === "daily" ? dailyValues : cumulativeValues;
-
-  // 4. SVG Dimensions & Padding
-  const width = 500;
-  const height = 220;
-  const paddingLeft = 50;
-  const paddingRight = 20;
-  const paddingTop = 25;
-  const paddingBottom = 30;
-
-  const gridWidth = width - paddingLeft - paddingRight;
-  const gridHeight = height - paddingTop - paddingBottom;
-
-  // 5. Scaling calculations
-  const maxAmount = Math.max(...activeData.map((d) => d.amount), 100);
-
-  // Grid coordinates for points
-  const points = activeData.map((d, i) => {
-    const x = paddingLeft + (i / (totalDays - 1)) * gridWidth;
-    const y = paddingTop + gridHeight - (d.amount / maxAmount) * gridHeight;
-    return { x, y, day: d.day, amount: d.amount };
-  });
-
-  // Construct SVG Line Path
-  let linePath = "";
-  let areaPath = "";
-
-  if (points.length > 0) {
-    linePath =
-      `M ${points[0].x} ${points[0].y} ` +
-      points
-        .slice(1)
-        .map((p) => `L ${p.x} ${p.y}`)
-        .join(" ");
-    areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingTop + gridHeight} L ${points[0].x} ${paddingTop + gridHeight} Z`;
-  }
-
-  // Generate gridline levels
-  const gridLinesCount = 3;
-  const gridLineHeights = Array.from({ length: gridLinesCount }, (_, i) => {
-    const ratio = i / (gridLinesCount - 1);
-    const y = paddingTop + ratio * gridHeight;
-    const value = maxAmount - ratio * maxAmount;
-    return { y, value };
-  });
-
-  // X Axis markers (say every 5 days: 1, 5, 10, 15, 20, 25, 30/31)
-  const xMarkers = [];
-  const step = 5;
-  for (let i = 1; i <= totalDays; i += step) {
-    xMarkers.push(i);
-  }
-  if (xMarkers[xMarkers.length - 1] !== totalDays) {
-    xMarkers.push(totalDays);
-  }
-
-  // Month names for labels
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const displayMonth = monthNames[month];
-
-  return (
-    <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-      {/* Header and Toggle Controls */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/5 pb-3">
-        <div>
-          <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-            Spending Trends
-          </div>
-          <h3 className="text-base font-extrabold text-white tracking-tight font-['Outfit'] mt-0.5">
-            {chartMode === "daily"
-              ? "Daily Variable Consumption"
-              : "Cumulative Spending Over Month"}
-          </h3>
-        </div>
-
-        {/* View Toggle */}
-        <div className="flex bg-slate-950/50 p-1 rounded-xl border border-white/5 self-start shrink-0">
-          <button
-            onClick={() => {
-              setChartMode("daily");
-              setHoveredIndex(null);
-            }}
-            className={`px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-              chartMode === "daily"
-                ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Daily
-          </button>
-          <button
-            onClick={() => {
-              setChartMode("cumulative");
-              setHoveredIndex(null);
-            }}
-            className={`px-3 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-              chartMode === "cumulative"
-                ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/10"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            Cumulative
-          </button>
-        </div>
-      </div>
-
-      {/* SVG Canvas Container */}
-      <div className="relative w-full aspect-[500/220] select-none">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-full overflow-visible"
-        >
-          <defs>
-            {/* Emerald Fill Gradient */}
-            <linearGradient id="chartAreaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-            </linearGradient>
-            {/* Glow Filter for Active Nodes */}
-            <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-
-          {/* 1. Horizontal Y-Axis Gridlines and Labels */}
-          {gridLineHeights.map((line, idx) => (
-            <g key={idx} className="opacity-40">
-              <line
-                x1={paddingLeft}
-                y1={line.y}
-                x2={width - paddingRight}
-                y2={line.y}
-                stroke="rgba(255,255,255,0.06)"
-                strokeWidth="1"
-              />
-              <text
-                x={paddingLeft - 8}
-                y={line.y + 3.5}
-                fill="#94a3b8"
-                fontSize="9"
-                fontWeight="700"
-                fontFamily="'Outfit', sans-serif"
-                textAnchor="end"
-              >
-                {formatCurrency(line.value)}
-              </text>
-            </g>
-          ))}
-
-          {/* 2. X-Axis Gridlines and Markers */}
-          {xMarkers.map((day, idx) => {
-            const x = paddingLeft + ((day - 1) / (totalDays - 1)) * gridWidth;
-            return (
-              <g key={idx}>
-                <line
-                  x1={x}
-                  y1={paddingTop}
-                  x2={x}
-                  y2={paddingTop + gridHeight}
-                  stroke="rgba(255,255,255,0.03)"
-                  strokeWidth="1"
-                />
-                <text
-                  x={x}
-                  y={paddingTop + gridHeight + 16}
-                  fill="#64748b"
-                  fontSize="9"
-                  fontWeight="800"
-                  fontFamily="'Outfit', sans-serif"
-                  textAnchor="middle"
-                >
-                  {day}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* 3. Render Area Path */}
-          {areaPath && (
-            <path
-              d={areaPath}
-              fill="url(#chartAreaGradient)"
-              className="transition-all duration-300"
-            />
-          )}
-
-          {/* 4. Render Stroke Line Path */}
-          {linePath && (
-            <path
-              d={linePath}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="transition-all duration-300"
-            />
-          )}
-
-          {/* 5. Hover pointer vertical dashed line and glowing dot */}
-          {hoveredIndex !== null &&
-            points[hoveredIndex] &&
-            (() => {
-              const p = points[hoveredIndex];
-              return (
-                <g className="animate-fade-in pointer-events-none">
-                  <line
-                    x1={p.x}
-                    y1={paddingTop}
-                    x2={p.x}
-                    y2={paddingTop + gridHeight}
-                    stroke="rgba(16, 185, 129, 0.3)"
-                    strokeWidth="1.5"
-                    strokeDasharray="4 3"
-                  />
-                  {/* Glowing Outer Node */}
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r="6"
-                    fill="#10b981"
-                    opacity="0.4"
-                    filter="url(#neonGlow)"
-                  />
-                  {/* Core White/Green Node */}
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r="3.5"
-                    fill="#ffffff"
-                    stroke="#10b981"
-                    strokeWidth="2"
-                  />
-                </g>
-              );
-            })()}
-
-          {/* 6. Transparent interactive hover rectangles for perfect responsive cursor tracking */}
-          {points.map((p, idx) => {
-            const stepWidth = gridWidth / (totalDays - 1);
-            const clickWidth = Math.max(stepWidth, 12);
-            return (
-              <rect
-                key={idx}
-                x={p.x - clickWidth / 2}
-                y={paddingTop}
-                width={clickWidth}
-                height={gridHeight}
-                fill="transparent"
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredIndex(idx)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                onTouchStart={() => setHoveredIndex(idx)}
-              />
-            );
-          })}
-        </svg>
-
-        {/* 7. Float Glassmorphism Tooltip Card */}
-        {hoveredIndex !== null &&
-          points[hoveredIndex] &&
-          (() => {
-            const p = points[hoveredIndex];
-
-            // Tooltip position offsets
-            const tooltipLeft = `${(p.x / width) * 100}%`;
-            const tooltipY = `${(p.y / height) * 100}%`;
-
-            return (
-              <div
-                className="absolute -translate-x-1/2 -translate-y-full bg-slate-900/90 border border-white/10 px-3 py-1.5 rounded-xl shadow-2xl flex flex-col gap-0.5 pointer-events-none select-none z-50 text-[10px] glassmorphism"
-                style={{
-                  left: tooltipLeft,
-                  top: `calc(${tooltipY} - 12px)`,
-                  minWidth: "92px",
-                }}
-              >
-                <span className="text-[8px] text-slate-400 font-extrabold uppercase tracking-widest">
-                  {displayMonth} {p.day}
-                </span>
-                <span className="text-white font-extrabold font-['Outfit'] text-xs">
-                  {formatCurrency(p.amount)}
-                </span>
-                <span className="text-[7px] text-emerald-400 font-black uppercase tracking-wider">
-                  {chartMode === "daily" ? "Daily Variable" : "Running Total"}
-                </span>
-              </div>
-            );
-          })()}
-      </div>
-
-      {/* Footer statistics summary card */}
-      <div className="grid grid-cols-2 gap-2 bg-slate-950/40 p-3 rounded-2xl border border-white/5 text-[10px]">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-slate-400 font-extrabold uppercase tracking-wider">
-            Total Month Spending
-          </span>
-          <span className="text-sm font-extrabold text-white font-['Outfit']">
-            {formatCurrency(
-              expenses.reduce((sum, exp) => sum + parseFloat(exp.amount), 0),
-            )}
-          </span>
-        </div>
-        <div className="flex flex-col gap-0.5 text-right">
-          <span className="text-slate-400 font-extrabold uppercase tracking-wider">
-            Peak Daily Expense
-          </span>
-          <span className="text-sm font-extrabold text-emerald-400 font-['Outfit']">
-            {formatCurrency(Math.max(...dailyValues.map((v) => v.amount), 0))}
-          </span>
-        </div>
-      </div>
-    </IonCard>
-  );
-}
-
 export default function Dashboard({ session, onSignOut }) {
   const [baselineIncomes, setBaselineIncomes] = useState([]);
   const [fixedExpenses, setFixedExpenses] = useState([]);
@@ -513,32 +152,6 @@ export default function Dashboard({ session, onSignOut }) {
   const [editExpenseDate, setEditExpenseDate] = useState("");
   const [selectedQuickCategory, setSelectedQuickCategory] = useState(null);
 
-  // Regular Income editors
-  const [isAddingBaseline, setIsAddingBaseline] = useState(false);
-  const [newBaselineDesc, setNewBaselineDesc] = useState("");
-  const [newBaselineAmount, setNewBaselineAmount] = useState("");
-  const [newBaselineDay, setNewBaselineDay] = useState("1");
-
-  // Inline Baseline Income editing states
-  const [editingBaselineId, setEditingBaselineId] = useState(null);
-  const [editBaselineDesc, setEditBaselineDesc] = useState("");
-  const [editBaselineAmount, setEditBaselineAmount] = useState("");
-  const [editBaselineDay, setEditBaselineDay] = useState("1");
-
-  // Fixed Monthly Bills editors
-  const [isAddingFixed, setIsAddingFixed] = useState(false);
-  const [newFixedDesc, setNewFixedDesc] = useState("");
-  const [newFixedAmount, setNewFixedAmount] = useState("");
-  const [newFixedDay, setNewFixedDay] = useState("1");
-  const [newFixedCategory, setNewFixedCategory] = useState("Utilities/Bills");
-
-  // Inline Fixed Bill editing states
-  const [editingFixedId, setEditingFixedId] = useState(null);
-  const [editFixedDesc, setEditFixedDesc] = useState("");
-  const [editFixedAmount, setEditFixedAmount] = useState("");
-  const [editFixedDay, setEditFixedDay] = useState("1");
-  const [editFixedCategory, setEditFixedCategory] = useState("Utilities/Bills");
-
   // Local ISO datetime helper YYYY-MM-DDTHH:mm
   const getLocalISODatetime = () => {
     const now = new Date();
@@ -546,21 +159,9 @@ export default function Dashboard({ session, onSignOut }) {
     return new Date(now - tzOffset).toISOString().slice(0, 16);
   };
 
-  // Additional Income editors
-  const [isAddingIncome, setIsAddingIncome] = useState(false);
-  const [additionalAmount, setAdditionalAmount] = useState("");
-  const [additionalDesc, setAdditionalDesc] = useState("");
-  const [additionalDate, setAdditionalDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-
   // Quick Expense input
   const [quickInput, setQuickInput] = useState("");
   const [quickLogDate, setQuickLogDate] = useState(getLocalISODatetime());
-  const [transactionSearch, setTransactionSearch] = useState("");
-  const [transactionCategoryFilter, setTransactionCategoryFilter] =
-    useState("all");
-  const [transactionDateFilter, setTransactionDateFilter] = useState("all");
   const [parsed, setParsed] = useState({
     amount: "",
     description: "",
@@ -592,6 +193,27 @@ export default function Dashboard({ session, onSignOut }) {
     fetchData();
   }, [session]);
 
+  // Synchronize browser tab document title with active tab & profile sub-views
+  useEffect(() => {
+    if (activeTab === "profile") {
+      const subViews = {
+        profile: "Profile",
+        settings: "Settings",
+        categories: "Categories",
+      };
+      const viewName = subViews[profileView] || "Profile";
+      document.title = `Easy Moneytoring — ${viewName}`;
+    } else {
+      const tabNames = {
+        home: "Home",
+        cashflow: "Cash Flow",
+        history: "History",
+      };
+      const tabName = tabNames[activeTab] || "Dashboard";
+      document.title = `Easy Moneytoring — ${tabName}`;
+    }
+  }, [activeTab, profileView]);
+
   // Sync quick-input parser in real-time as user types
   useEffect(() => {
     setSelectedQuickCategory(null);
@@ -607,60 +229,53 @@ export default function Dashboard({ session, onSignOut }) {
   }, [quickInput, userCategories]);
 
   // Category management handlers
-  const handleSaveCategory = async (e) => {
-    e.preventDefault();
-    if (!catEditName.trim()) return;
+  const handleSaveCategory = async (editingKey, catData) => {
+    if (!catData.name.trim()) return false;
 
-    const key = catEditName.trim();
+    const key = catData.name.trim();
     if (key.toLowerCase() === "other") {
       showModal(
         "Action Blocked",
         'You cannot create or overwrite a category named "Other" as it is reserved by the system.',
         "warning",
       );
-      return;
+      return false;
     }
 
-    const cleanKeywords = catEditKeywords
-      .split(",")
-      .map((k) => k.trim().toLowerCase())
-      .filter((k) => k.length > 0);
-
-    const existingOrder = editingCatKey ? (userCategories[editingCatKey]?.display_order || 0) : (Object.keys(userCategories).length * 10);
+    const cleanKeywords = catData.keywords.map((k) => k.toLowerCase());
+    const existingOrder = editingKey ? (userCategories[editingKey]?.display_order || 0) : (Object.keys(userCategories).length * 10);
 
     const newCatObj = {
       name: key,
-      color: catEditColor,
-      textColor: `text-${catEditColor}-400`,
-      bgColor: `bg-${catEditColor}-400/10`,
-      borderColor: `border-${catEditColor}-400/20`,
-      gradientFrom: `from-${catEditColor}-400/20`,
+      color: catData.color,
+      textColor: `text-${catData.color}-400`,
+      bgColor: `bg-${catData.color}-400/10`,
+      borderColor: `border-${catData.color}-400/20`,
+      gradientFrom: `from-${catData.color}-400/20`,
       keywords: cleanKeywords,
-      icon: catEditIcon,
+      icon: catData.icon,
       display_order: existingOrder,
     };
 
     try {
-      if (editingCatKey) {
-        // If they renamed it, delete the old one first
-        if (editingCatKey !== key) {
+      if (editingKey) {
+        if (editingKey !== key) {
           const { error: delError } = await supabase
             .from("custom_categories")
             .delete()
             .eq("user_id", session.user.id)
-            .eq("name", editingCatKey);
+            .eq("name", editingKey);
           if (delError) throw delError;
         }
       }
 
-      // Upsert the new one
       const { error: upsertError } = await supabase
         .from("custom_categories")
         .upsert({
           user_id: session.user.id,
           name: key,
-          color: catEditColor,
-          icon: catEditIcon,
+          color: catData.color,
+          icon: catData.icon,
           keywords: cleanKeywords,
           display_order: existingOrder,
         });
@@ -673,24 +288,18 @@ export default function Dashboard({ session, onSignOut }) {
           )
         ) {
           triggerMigrationModal();
-          return;
+          return false;
         }
         throw upsertError;
       }
 
       const updated = { ...userCategories };
-      if (editingCatKey && editingCatKey !== key) {
-        delete updated[editingCatKey];
+      if (editingKey && editingKey !== key) {
+        delete updated[editingKey];
       }
       updated[key] = newCatObj;
       setUserCategories(updated);
-
-      // Reset Form
-      setCatEditName("");
-      setCatEditColor("emerald");
-      setCatEditIcon("cashOutline");
-      setCatEditKeywords("");
-      setEditingCatKey(null);
+      return true;
     } catch (err) {
       console.error("Error saving category to Supabase:", err);
       showModal(
@@ -698,6 +307,7 @@ export default function Dashboard({ session, onSignOut }) {
         "An error occurred while saving your category. Please try again.",
         "error",
       );
+      return false;
     }
   };
 
@@ -723,15 +333,6 @@ export default function Dashboard({ session, onSignOut }) {
       const updated = { ...userCategories };
       delete updated[catName];
       setUserCategories(updated);
-
-      // If we were editing this deleted category, reset edit form
-      if (editingCatKey === catName) {
-        setCatEditName("");
-        setCatEditColor("emerald");
-        setCatEditIcon("cashOutline");
-        setCatEditKeywords("");
-        setEditingCatKey(null);
-      }
     } catch (err) {
       console.error("Error deleting category from Supabase:", err);
       showModal(
@@ -742,39 +343,7 @@ export default function Dashboard({ session, onSignOut }) {
     }
   };
 
-  const handleStartEditCategory = (catName) => {
-    const cat = userCategories[catName];
-    if (!cat) return;
-    setEditingCatKey(catName);
-    setCatEditName(cat.name);
-    setCatEditColor(cat.color || "emerald");
-    setCatEditIcon(cat.icon || "cashOutline");
-    setCatEditKeywords(cat.keywords ? cat.keywords.join(", ") : "");
-  };
-
-  const handleCancelEditCategory = () => {
-    setCatEditName("");
-    setCatEditColor("emerald");
-    setCatEditIcon("cashOutline");
-    setCatEditKeywords("");
-    setEditingCatKey(null);
-  };
-
-  const handleMoveCategory = async (key, direction) => {
-    const orderedKeys = Object.keys(userCategories).sort(
-      (a, b) => (userCategories[a].display_order || 0) - (userCategories[b].display_order || 0)
-    );
-
-    const index = orderedKeys.indexOf(key);
-    if (index === -1) return;
-
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= orderedKeys.length) return;
-
-    const newOrderedKeys = [...orderedKeys];
-    newOrderedKeys[index] = orderedKeys[targetIndex];
-    newOrderedKeys[targetIndex] = orderedKeys[index];
-
+  const handleReorderCategories = async (newOrderedKeys) => {
     const updatedCategories = { ...userCategories };
     const updates = newOrderedKeys.map((k, i) => {
       const newOrder = i * 10;
@@ -1096,112 +665,72 @@ alter table public.custom_categories add column if not exists display_order inte
   };
 
   // Add baseline income source
-  const handleAddBaselineIncome = async (e) => {
-    e.preventDefault();
-    const amount = parseFloat(newBaselineAmount);
-    const day = parseInt(newBaselineDay);
-    const desc = newBaselineDesc.trim();
+  const handleAddBaselineIncome = async ({ desc, amount, day }) => {
+    const parsedAmount = parseFloat(amount);
+    const parsedDay = parseInt(day);
+    const parsedDesc = desc.trim();
 
-    if (isNaN(amount) || amount <= 0 || !desc) {
-      showModal(
-        "Invalid Input",
-        "Please enter a description and a valid amount.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !parsedDesc) {
+      showModal("Invalid Input", "Please enter a description and a valid amount.", "warning");
+      return false;
     }
-    if (isNaN(day) || day < 1 || day > 31) {
-      showModal(
-        "Invalid Transfer Day",
-        "Transfer day of the month must be between 1 and 31.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      showModal("Invalid Transfer Day", "Transfer day of the month must be between 1 and 31.", "warning");
+      return false;
     }
 
     try {
       const { data, error } = await supabase
         .from("baseline_income")
-        .insert([
-          {
-            user_id: session.user.id,
-            amount,
-            description: desc,
-            transfer_day: day,
-          },
-        ])
+        .insert([{
+          user_id: session.user.id,
+          amount: parsedAmount,
+          description: parsedDesc,
+          transfer_day: parsedDay,
+        }])
         .select()
         .single();
 
       if (error) {
-        if (
-          error.message &&
-          error.message.includes(
-            'relation "public.baseline_income" does not exist',
-          )
-        ) {
+        if (error.message && error.message.includes('relation "public.baseline_income" does not exist')) {
           triggerMigrationModal();
-        } else {
-          throw error;
+          return false;
         }
-      } else {
-        setBaselineIncomes((prev) =>
-          [...prev, data].sort((a, b) => a.transfer_day - b.transfer_day),
-        );
-        setNewBaselineDesc("");
-        setNewBaselineAmount("");
-        setNewBaselineDay("1");
-        setIsAddingBaseline(false);
+        throw error;
       }
+
+      setBaselineIncomes((prev) =>
+        [...prev, data].sort((a, b) => a.transfer_day - b.transfer_day)
+      );
+      return true;
     } catch (err) {
       console.error("Error adding baseline income:", err);
-      showModal(
-        "Error Adding Regular Income",
-        "Could not save the new baseline income source. Please check your database tables.",
-        "error",
-      );
+      showModal("Error Adding Regular Income", "Could not save the new baseline income source. Please check your database tables.", "error");
+      return false;
     }
   };
 
-  // Start editing baseline income source
-  const handleStartEditBaseline = (income) => {
-    setEditingBaselineId(income.id);
-    setEditBaselineDesc(income.description);
-    setEditBaselineAmount(income.amount.toString());
-    setEditBaselineDay(income.transfer_day.toString());
-  };
+  const handleSaveEditBaseline = async ({ id, desc, amount, day }) => {
+    const parsedAmount = parseFloat(amount);
+    const parsedDay = parseInt(day);
+    const parsedDesc = desc.trim();
 
-  // Save baseline income source edit
-  const handleSaveEditBaseline = async (e, id) => {
-    e.preventDefault();
-    const amount = parseFloat(editBaselineAmount);
-    const day = parseInt(editBaselineDay);
-    const desc = editBaselineDesc.trim();
-
-    if (isNaN(amount) || amount <= 0 || !desc) {
-      showModal(
-        "Invalid Input",
-        "Please enter a description and a valid amount.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !parsedDesc) {
+      showModal("Invalid Input", "Please enter a description and a valid amount.", "warning");
+      return false;
     }
-    if (isNaN(day) || day < 1 || day > 31) {
-      showModal(
-        "Invalid Transfer Day",
-        "Transfer day of the month must be between 1 and 31.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      showModal("Invalid Transfer Day", "Transfer day of the month must be between 1 and 31.", "warning");
+      return false;
     }
 
     try {
       const { data, error } = await supabase
         .from("baseline_income")
         .update({
-          amount,
-          description: desc,
-          transfer_day: day,
+          amount: parsedAmount,
+          description: parsedDesc,
+          transfer_day: parsedDay,
         })
         .eq("id", id)
         .select()
@@ -1212,20 +741,16 @@ alter table public.custom_categories add column if not exists display_order inte
       setBaselineIncomes((prev) =>
         prev
           .map((item) => (item.id === id ? data : item))
-          .sort((a, b) => a.transfer_day - b.transfer_day),
+          .sort((a, b) => a.transfer_day - b.transfer_day)
       );
-      setEditingBaselineId(null);
+      return true;
     } catch (err) {
       console.error("Error saving regular income edit:", err);
-      showModal(
-        "Error Saving Edit",
-        "Could not save your changes. Please try again.",
-        "error",
-      );
+      showModal("Error Saving Edit", "Could not save your changes. Please try again.", "error");
+      return false;
     }
   };
 
-  // Delete baseline income source
   const handleDeleteBaselineIncome = async (id) => {
     try {
       const { error } = await supabase
@@ -1235,126 +760,82 @@ alter table public.custom_categories add column if not exists display_order inte
 
       if (error) throw error;
       setBaselineIncomes((prev) => prev.filter((item) => item.id !== id));
+      return true;
     } catch (err) {
       console.error("Error deleting baseline income:", err);
-      showModal(
-        "Error Deleting Source",
-        "Could not remove the regular income source. Please try again.",
-        "error",
-      );
+      showModal("Error Deleting Source", "Could not remove the regular income source. Please try again.", "error");
+      return false;
     }
   };
 
-  // Add Fixed monthly expense
-  const handleAddFixedExpense = async (e) => {
-    e.preventDefault();
-    const amount = parseFloat(newFixedAmount);
-    const day = parseInt(newFixedDay);
-    const desc = newFixedDesc.trim();
+  const handleAddFixedExpense = async ({ desc, amount, day, category }) => {
+    const parsedAmount = parseFloat(amount);
+    const parsedDay = parseInt(day);
+    const parsedDesc = desc.trim();
 
-    if (isNaN(amount) || amount <= 0 || !desc) {
-      showModal(
-        "Invalid Input",
-        "Please enter a description and a valid amount.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !parsedDesc) {
+      showModal("Invalid Input", "Please enter a description and a valid amount.", "warning");
+      return false;
     }
-    if (isNaN(day) || day < 1 || day > 31) {
-      showModal(
-        "Invalid Due Day",
-        "Due day of the month must be between 1 and 31.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      showModal("Invalid Due Day", "Due day of the month must be between 1 and 31.", "warning");
+      return false;
     }
 
     try {
       const { data, error } = await supabase
         .from("fixed_expenses")
-        .insert([
-          {
-            user_id: session.user.id,
-            amount,
-            description: desc,
-            category: newFixedCategory,
-            due_day: day,
-          },
-        ])
+        .insert([{
+          user_id: session.user.id,
+          amount: parsedAmount,
+          description: parsedDesc,
+          category,
+          due_day: parsedDay,
+        }])
         .select()
         .single();
 
       if (error) {
-        if (
-          error.message &&
-          error.message.includes(
-            'relation "public.fixed_expenses" does not exist',
-          )
-        ) {
+        if (error.message && error.message.includes('relation "public.fixed_expenses" does not exist')) {
           triggerMigrationModal();
-        } else {
-          throw error;
+          return false;
         }
-      } else {
-        setFixedExpenses((prev) =>
-          [...prev, data].sort((a, b) => a.due_day - b.due_day),
-        );
-        setNewFixedDesc("");
-        setNewFixedAmount("");
-        setNewFixedDay("1");
-        setIsAddingFixed(false);
+        throw error;
       }
+
+      setFixedExpenses((prev) =>
+        [...prev, data].sort((a, b) => a.due_day - b.due_day)
+      );
+      return true;
     } catch (err) {
       console.error("Error adding fixed expense:", err);
-      showModal(
-        "Error Adding Fixed Bill",
-        "Could not save the new recurring bill. Please check your database tables.",
-        "error",
-      );
+      showModal("Error Adding Fixed Bill", "Could not save the new recurring bill. Please check your database tables.", "error");
+      return false;
     }
   };
 
-  // Start editing fixed monthly bill
-  const handleStartEditFixed = (bill) => {
-    setEditingFixedId(bill.id);
-    setEditFixedDesc(bill.description);
-    setEditFixedAmount(bill.amount.toString());
-    setEditFixedDay(bill.due_day.toString());
-    setEditFixedCategory(bill.category);
-  };
+  const handleSaveEditFixed = async ({ id, desc, amount, day, category }) => {
+    const parsedAmount = parseFloat(amount);
+    const parsedDay = parseInt(day);
+    const parsedDesc = desc.trim();
 
-  // Save fixed monthly bill edit
-  const handleSaveEditFixed = async (e, id) => {
-    e.preventDefault();
-    const amount = parseFloat(editFixedAmount);
-    const day = parseInt(editFixedDay);
-    const desc = editFixedDesc.trim();
-
-    if (isNaN(amount) || amount <= 0 || !desc) {
-      showModal(
-        "Invalid Input",
-        "Please enter a description and a valid amount.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || !parsedDesc) {
+      showModal("Invalid Input", "Please enter a description and a valid amount.", "warning");
+      return false;
     }
-    if (isNaN(day) || day < 1 || day > 31) {
-      showModal(
-        "Invalid Due Day",
-        "Due day of the month must be between 1 and 31.",
-        "warning",
-      );
-      return;
+    if (isNaN(parsedDay) || parsedDay < 1 || parsedDay > 31) {
+      showModal("Invalid Due Day", "Due day of the month must be between 1 and 31.", "warning");
+      return false;
     }
 
     try {
       const { data, error } = await supabase
         .from("fixed_expenses")
         .update({
-          amount,
-          description: desc,
-          due_day: day,
-          category: editFixedCategory,
+          amount: parsedAmount,
+          description: parsedDesc,
+          due_day: parsedDay,
+          category,
         })
         .eq("id", id)
         .select()
@@ -1365,20 +846,16 @@ alter table public.custom_categories add column if not exists display_order inte
       setFixedExpenses((prev) =>
         prev
           .map((item) => (item.id === id ? data : item))
-          .sort((a, b) => a.due_day - b.due_day),
+          .sort((a, b) => a.due_day - b.due_day)
       );
-      setEditingFixedId(null);
+      return true;
     } catch (err) {
       console.error("Error saving fixed bill edit:", err);
-      showModal(
-        "Error Saving Edit",
-        "Could not save your changes. Please try again.",
-        "error",
-      );
+      showModal("Error Saving Edit", "Could not save your changes. Please try again.", "error");
+      return false;
     }
   };
 
-  // Delete fixed expense source
   const handleDeleteFixedExpense = async (id) => {
     try {
       const { error } = await supabase
@@ -1388,52 +865,40 @@ alter table public.custom_categories add column if not exists display_order inte
 
       if (error) throw error;
       setFixedExpenses((prev) => prev.filter((item) => item.id !== id));
+      return true;
     } catch (err) {
       console.error("Error deleting fixed expense:", err);
-      showModal(
-        "Error Deleting Bill",
-        "Could not remove the recurring bill. Please try again.",
-        "error",
-      );
+      showModal("Error Deleting Bill", "Could not remove the recurring bill. Please try again.", "error");
+      return false;
     }
   };
 
-  // Add additional income
-  const handleAddAdditionalIncome = async (e) => {
-    e.preventDefault();
-    const amount = parseFloat(additionalAmount);
-    if (isNaN(amount) || amount <= 0) return;
+  const handleAddAdditionalIncome = async ({ amount, desc, date }) => {
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) return false;
 
     try {
       const { data, error } = await supabase
         .from("additional_income")
-        .insert([
-          {
-            user_id: session.user.id,
-            amount,
-            description: additionalDesc.trim() || "Additional Income",
-            date: additionalDate || new Date().toISOString().split("T")[0],
-          },
-        ])
+        .insert([{
+          user_id: session.user.id,
+          amount: parsedAmount,
+          description: desc.trim() || "Additional Income",
+          date: date || new Date().toISOString().split("T")[0],
+        }])
         .select()
         .single();
 
       if (error) throw error;
       setAdditionalIncome((prev) => [data, ...prev]);
-      setAdditionalAmount("");
-      setAdditionalDesc("");
-      setIsAddingIncome(false);
+      return true;
     } catch (err) {
       console.error("Error adding additional income:", err);
-      showModal(
-        "Error Logging Income",
-        "An error occurred while saving your additional income. Please try again.",
-        "error",
-      );
+      showModal("Error Logging Income", "An error occurred while saving your additional income. Please try again.", "error");
+      return false;
     }
   };
 
-  // Delete additional income
   const handleDeleteAdditionalIncome = async (id) => {
     try {
       const { error } = await supabase
@@ -1444,17 +909,49 @@ alter table public.custom_categories add column if not exists display_order inte
 
       if (error) throw error;
       setAdditionalIncome((prev) => prev.filter((income) => income.id !== id));
+      return true;
     } catch (err) {
       console.error("Error deleting additional income:", err);
-      showModal(
-        "Error Deleting Income",
-        "Could not delete the selected income entry. Please try again.",
-        "error",
-      );
+      showModal("Error Deleting Income Entry", "Could not remove the additional income entry. Please try again.", "error");
+      return false;
     }
   };
 
-  // Start editing expense
+  const handleSaveEditAdditional = async ({ id, desc, amount, date }) => {
+    const parsedAmount = parseFloat(amount);
+    const parsedDesc = desc.trim();
+
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      showModal("Invalid Input", "Please enter a valid amount.", "warning");
+      return false;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("additional_income")
+        .update({
+          amount: parsedAmount,
+          description: parsedDesc || "Additional Income",
+          date: date || new Date().toISOString().split("T")[0],
+        })
+        .eq("id", id)
+        .eq("user_id", session.user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setAdditionalIncome((prev) =>
+        prev.map((item) => (item.id === id ? data : item))
+      );
+      return true;
+    } catch (err) {
+      console.error("Error saving additional income edit:", err);
+      showModal("Error Saving Edit", "Could not save your changes. Please try again.", "error");
+      return false;
+    }
+  };
+
   const handleStartEditExpense = (expense) => {
     setEditingExpense(expense);
     setEditExpenseDesc(expense.description);
@@ -1801,43 +1298,7 @@ alter table public.custom_categories add column if not exists display_order inte
     return colorHexMap[cat.color] || "#94a3b8";
   };
 
-  const filteredExpenses = expenses.filter((expense) => {
-    const query = transactionSearch.trim().toLowerCase();
-    const expenseDate = new Date(expense.created_at || expense.date);
-    const now = new Date();
 
-    const matchesSearch =
-      !query ||
-      expense.description?.toLowerCase().includes(query) ||
-      expense.category?.toLowerCase().includes(query) ||
-      String(expense.amount).includes(query);
-
-    const matchesCategory =
-      transactionCategoryFilter === "all" ||
-      expense.category === transactionCategoryFilter;
-
-    let matchesDate = true;
-    if (transactionDateFilter === "today") {
-      matchesDate = expenseDate.toDateString() === now.toDateString();
-    } else if (transactionDateFilter === "week") {
-      const sevenDaysAgo = new Date(now);
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      matchesDate = expenseDate >= sevenDaysAgo;
-    }
-
-    return matchesSearch && matchesCategory && matchesDate;
-  });
-
-  const hasTransactionFilters =
-    transactionSearch.trim() ||
-    transactionCategoryFilter !== "all" ||
-    transactionDateFilter !== "all";
-
-  const resetTransactionFilters = () => {
-    setTransactionSearch("");
-    setTransactionCategoryFilter("all");
-    setTransactionDateFilter("all");
-  };
 
   const showHeaderBack = activeTab === "profile" && profileView !== "profile";
   const handleHeaderBack = () => {
@@ -1883,9 +1344,10 @@ alter table public.custom_categories add column if not exists display_order inte
                   <IonIcon icon={arrowBackOutline} className="h-4.5 w-4.5" />
                 </button>
               ) : (
-                <IonIcon
-                  icon={walletOutline}
-                  className="h-5 w-5 shrink-0 text-emerald-400"
+                <img
+                  src="/logo.png"
+                  className="h-6 w-6 object-contain shrink-0"
+                  alt="Logo"
                 />
               )}
               <span className="text-[15px] font-extrabold tracking-tight font-['Outfit'] text-white">
@@ -1916,1918 +1378,98 @@ alter table public.custom_categories add column if not exists display_order inte
               <div className="absolute top-1/3 left-1/4 w-60 h-60 rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none" />
 
               {/* 1. HOME TAB */}
+              {/* 1. HOME TAB */}
               {activeTab === "home" && (
-                <div className="flex flex-col gap-6 animate-fade-in">
-                  {/* Remaining Budget card */}
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 relative overflow-hidden shadow-xl border border-white/5 bg-slate-950/20">
-                    <div
-                      className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-[80px] pointer-events-none opacity-20 transition-all ${
-                        remainingBudget > totalBudget * 0.5
-                          ? "bg-emerald-500"
-                          : remainingBudget > totalBudget * 0.2
-                            ? "bg-amber-500"
-                            : "bg-rose-500"
-                      }`}
-                    />
-
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 text-slate-200 text-[10px] font-bold tracking-wider uppercase mb-1">
-                          <IonIcon
-                            icon={calendarOutline}
-                            className="w-3.5 h-3.5"
-                          />
-                          <span>Remaining Budget — {currentMonthName}</span>
-                        </div>
-                        <div
-                          className={`text-4xl font-extrabold tracking-tight font-['Outfit'] transition-all ${
-                            remainingBudget < 0 ? "text-rose-400" : "text-white"
-                          }`}
-                        >
-                          {formatCurrency(remainingBudget)}
-                        </div>
-                        <div className="mt-2 text-[11px] text-slate-200 flex items-center gap-1.5 font-medium">
-                          <span>Spent</span>
-                          <span className="text-white font-semibold">
-                            {formatCurrency(totalSpent)}
-                          </span>
-                          <span>of</span>
-                          <span className="text-emerald-400 font-semibold">
-                            {formatCurrency(totalBudget)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div
-                        className={`self-start px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
-                          remainingBudget > totalBudget * 0.5
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : remainingBudget > totalBudget * 0.2
-                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}
-                      >
-                        {remainingBudget > totalBudget * 0.5
-                          ? "Healthy Budget"
-                          : remainingBudget > totalBudget * 0.2
-                            ? "Caution Alert"
-                            : remainingBudget > 0
-                              ? "Critically Low"
-                              : "Budget Overdrawn"}
-                      </div>
-                    </div>
-
-                    {/* Stacked indicator bars */}
-                    <div className="mt-5 space-y-2">
-                      <div
-                        className="w-full bg-slate-950/90 rounded-full overflow-hidden flex border border-white/10 p-0.5"
-                        style={{ height: "18px" }}
-                      >
-                        {categoryMap.map((cat) => {
-                          const amount = categoryTotals[cat.name] || 0;
-                          if (amount === 0 || totalBudget === 0) return null;
-                          const widthPercent = (amount / totalBudget) * 100;
-                          return (
-                            <div
-                              key={cat.key}
-                              style={{
-                                width: `${widthPercent}%`,
-                                backgroundColor: getCategoryColor(cat.name),
-                                borderRadius: "9999px",
-                              }}
-                              className="h-full transition-all"
-                              title={`${cat.name}: ${formatCurrency(amount)} (${widthPercent.toFixed(1)}%)`}
-                            />
-                          );
-                        })}
-                        {remainingBudget > 0 && totalBudget > 0 && (
-                          <div
-                            style={{
-                              width: `${remainingPercentage}%`,
-                              background:
-                                "repeating-linear-gradient(-45deg, rgba(16, 185, 129, 0.45), rgba(16, 185, 129, 0.45) 6px, rgba(16, 185, 129, 0.18) 6px, rgba(16, 185, 129, 0.18) 12px)",
-                              borderRadius: "9999px",
-                              marginLeft: "2px",
-                            }}
-                            className="h-full transition-all"
-                            title={`Remaining: ${formatCurrency(remainingBudget)} (${remainingPercentage.toFixed(1)}%)`}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </IonCard>
-
-                  {/* Category Breakdown list */}
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 mb-3">
-                      Category Expenditures
-                    </h3>
-                    <div className="space-y-1">
-                      {categoryMap.map((cat) => {
-                        const amount = categoryTotals[cat.name] || 0;
-                        const percent =
-                          totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
-                        return (
-                          <div
-                            key={cat.key}
-                            onClick={() => setSelectedDetailCategory(cat.name)}
-                            className="group relative cursor-pointer hover:bg-white/3 active:scale-[0.99] py-1 px-2.5 -mx-2.5 rounded-2xl transition-all border border-transparent hover:border-white/5"
-                            title={`Audit ${cat.name} expenses`}
-                          >
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`p-1 rounded-lg ${cat.bgColor || "bg-slate-500/10"} border ${cat.borderColor || "border-slate-500/20"} flex`}
-                                >
-                                  {getCategoryIcon(cat.name)}
-                                </div>
-                                <span className="font-semibold text-slate-200">
-                                  {cat.name}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-bold text-white">
-                                  {formatCurrency(amount)}
-                                </span>
-                                <span className="text-[9px] text-slate-300 font-bold ml-1.5">
-                                  ({percent.toFixed(0)}%)
-                                </span>
-                              </div>
-                            </div>
-                            <div className="h-1 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                              <div
-                                style={{ width: `${percent}%` }}
-                                className={`h-full ${cat.bgColor ? "bg-" + cat.color + "-400" : "bg-slate-400"} rounded-full transition-all`}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </IonCard>
-                </div>
+                <HomeTab
+                  remainingBudget={remainingBudget}
+                  totalBudget={totalBudget}
+                  currentMonthName={currentMonthName}
+                  formatCurrency={formatCurrency}
+                  totalSpent={totalSpent}
+                  categoryMap={categoryMap}
+                  categoryTotals={categoryTotals}
+                  getCategoryColor={getCategoryColor}
+                  getCategoryIcon={getCategoryIcon}
+                  setSelectedDetailCategory={setSelectedDetailCategory}
+                  remainingPercentage={remainingPercentage}
+                  onReorderCategories={handleReorderCategories}
+                />
               )}
 
               {/* 2. CASH FLOW TAB */}
               {activeTab === "cashflow" && (
-                <div className="flex flex-col gap-6 animate-fade-in">
-                  {/* Baseline Income (Regular Monthly Incomes) */}
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                      <div>
-                        <div className="text-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                          Baseline Income (Regular)
-                        </div>
-                        <span className="text-2xl font-extrabold text-white mt-0.5 block font-['Outfit']">
-                          {formatCurrency(totalBaseline)}
-                        </span>
-                        <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block tracking-wider">
-                          {formatCurrency(totalBaselineConfigured)} configured
-                          monthly
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setIsAddingBaseline(!isAddingBaseline)}
-                        className="flex items-center justify-center border border-white/5 shadow-md hover:scale-105 active:scale-95 transition-all select-none cursor-pointer"
-                        style={{
-                          width: "30px",
-                          height: "30px",
-                          borderRadius: "50%",
-                          border: "none",
-                          background: isAddingBaseline
-                            ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                            : "linear-gradient(to top right, #10b981, #2dd4bf)",
-                          boxShadow: isAddingBaseline
-                            ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
-                            : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
-                        }}
-                      >
-                        <IonIcon
-                          icon={isAddingBaseline ? closeOutline : addOutline}
-                          className="w-4 h-4 block"
-                          style={{
-                            color: isAddingBaseline ? "#4c0519" : "#022c22",
-                          }}
-                        />
-                      </button>
-                    </div>
-
-                    {isAddingBaseline && (
-                      <form
-                        onSubmit={handleAddBaselineIncome}
-                        className="space-y-3 pt-3 border-b border-white/5 pb-4 animate-fade-in"
-                      >
-                        <IonItem
-                          fill="none"
-                          className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                          style={{
-                            "--background": "transparent",
-                            "--inner-padding-end": "0px",
-                            "--padding-start": "0px",
-                          }}
-                        >
-                          <IonInput
-                            type="text"
-                            required
-                            placeholder="Source Description (e.g. PT Programming)"
-                            value={newBaselineDesc}
-                            onIonInput={(e) =>
-                              setNewBaselineDesc(e.detail.value)
-                            }
-                            className="px-3 text-white text-xs placeholder-slate-500"
-                            style={{
-                              "--padding-top": "10px",
-                              "--padding-bottom": "10px",
-                            }}
-                          />
-                        </IonItem>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--inner-padding-end": "0px",
-                              "--padding-start": "0px",
-                            }}
-                          >
-                            <IonInput
-                              type="number"
-                              required
-                              placeholder="Amount (NTD)"
-                              value={newBaselineAmount}
-                              onIonInput={(e) =>
-                                setNewBaselineAmount(e.detail.value)
-                              }
-                              className="px-3 text-white text-xs placeholder-slate-500"
-                              style={{
-                                "--padding-top": "10px",
-                                "--padding-bottom": "10px",
-                              }}
-                            />
-                          </IonItem>
-
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--inner-padding-end": "0px",
-                              "--padding-start": "0px",
-                            }}
-                          >
-                            <IonInput
-                              type="number"
-                              min="1"
-                              max="31"
-                              required
-                              placeholder="Transfer Day (1-31)"
-                              value={newBaselineDay}
-                              onIonInput={(e) =>
-                                setNewBaselineDay(e.detail.value)
-                              }
-                              className="px-3 text-white text-xs placeholder-slate-500 font-mono"
-                              style={{
-                                "--padding-top": "10px",
-                                "--padding-bottom": "10px",
-                              }}
-                            />
-                          </IonItem>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
-                          style={{
-                            background:
-                              "linear-gradient(to right, #10b981, #14b8a6)",
-                            color: "#022c22",
-                            padding: "12px 20px",
-                            borderRadius: "16px",
-                            border: "none",
-                            minHeight: "44px",
-                          }}
-                        >
-                          <IonIcon
-                            icon={checkmarkOutline}
-                            className="w-4 h-4 stroke-[2.5]"
-                            style={{ color: "#022c22" }}
-                          />
-                          <span>Add Baseline Income</span>
-                        </button>
-                      </form>
-                    )}
-
-                    {baselineIncomes.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 font-semibold leading-normal italic text-center py-4">
-                        No baseline income sources configured. Click add to
-                        setup.
-                      </p>
-                    ) : (
-                      <div className="space-y-2 mt-3 max-h-56 overflow-y-auto pr-1">
-                        {baselineIncomes.map((income) => (
-                          <div key={income.id}>
-                            {editingBaselineId === income.id ? (
-                              <form
-                                onSubmit={(e) =>
-                                  handleSaveEditBaseline(e, income.id)
-                                }
-                                className="space-y-2.5 bg-slate-950/50 border border-emerald-500/20 rounded-2xl p-3 animate-fade-in"
-                              >
-                                <IonItem
-                                  fill="none"
-                                  className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                  style={{
-                                    "--background": "transparent",
-                                    "--inner-padding-end": "0px",
-                                    "--padding-start": "0px",
-                                  }}
-                                >
-                                  <IonInput
-                                    type="text"
-                                    required
-                                    value={editBaselineDesc}
-                                    onIonInput={(e) =>
-                                      setEditBaselineDesc(e.detail.value)
-                                    }
-                                    className="px-2.5 text-white text-xs"
-                                    style={{
-                                      "--padding-top": "8px",
-                                      "--padding-bottom": "8px",
-                                    }}
-                                  />
-                                </IonItem>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <IonItem
-                                    fill="none"
-                                    className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                    style={{
-                                      "--background": "transparent",
-                                      "--inner-padding-end": "0px",
-                                      "--padding-start": "0px",
-                                    }}
-                                  >
-                                    <IonInput
-                                      type="number"
-                                      required
-                                      value={editBaselineAmount}
-                                      onIonInput={(e) =>
-                                        setEditBaselineAmount(e.detail.value)
-                                      }
-                                      className="px-2.5 text-white text-xs"
-                                      style={{
-                                        "--padding-top": "8px",
-                                        "--padding-bottom": "8px",
-                                      }}
-                                    />
-                                  </IonItem>
-                                  <IonItem
-                                    fill="none"
-                                    className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                    style={{
-                                      "--background": "transparent",
-                                      "--inner-padding-end": "0px",
-                                      "--padding-start": "0px",
-                                    }}
-                                  >
-                                    <IonInput
-                                      type="number"
-                                      min="1"
-                                      max="31"
-                                      required
-                                      value={editBaselineDay}
-                                      onIonInput={(e) =>
-                                        setEditBaselineDay(e.detail.value)
-                                      }
-                                      className="px-2.5 text-white text-xs font-mono"
-                                      style={{
-                                        "--padding-top": "8px",
-                                        "--padding-bottom": "8px",
-                                      }}
-                                    />
-                                  </IonItem>
-                                </div>
-                                <div className="flex justify-end gap-2 pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingBaselineId(null)}
-                                    className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"
-                                  >
-                                    <IonIcon
-                                      icon={closeOutline}
-                                      className="w-4 h-4"
-                                    />
-                                  </button>
-                                  <button
-                                    type="submit"
-                                    className="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
-                                  >
-                                    <IonIcon
-                                      icon={checkmarkOutline}
-                                      className="w-4 h-4 stroke-[2.5]"
-                                    />
-                                  </button>
-                                </div>
-                              </form>
-                            ) : (
-                              (() => {
-                                const isReceived =
-                                  parseInt(income.transfer_day) <= currentDay;
-                                return (
-                                  <div className="flex items-center justify-between group bg-white/2 border border-white/5 rounded-xl p-3 hover:border-emerald-500/20 transition-all">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-xs font-bold text-white capitalize">
-                                          {income.description}
-                                        </p>
-                                        {isReceived ? (
-                                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[8px] font-black uppercase tracking-wider">
-                                            Received
-                                          </span>
-                                        ) : (
-                                          <span className="px-1.5 py-0.2 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20 text-[8px] font-black uppercase tracking-wider">
-                                            Pending
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-[9px] text-slate-300 font-extrabold uppercase mt-1 tracking-wide">
-                                        Transfers Day {income.transfer_day} of
-                                        month
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span
-                                        className={`text-xs font-extrabold ${isReceived ? "text-emerald-400" : "text-slate-400"}`}
-                                      >
-                                        {formatCurrency(income.amount)}
-                                      </span>
-                                      <div className="flex items-center gap-1 transition-all">
-                                        <button
-                                          onClick={() =>
-                                            handleStartEditBaseline(income)
-                                          }
-                                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
-                                          aria-label={`Edit ${income.description}`}
-                                          title="Edit"
-                                        >
-                                          <IonIcon
-                                            icon={createOutline}
-                                            className="h-3.5 w-3.5"
-                                          />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDeleteBaselineIncome(
-                                              income.id,
-                                            )
-                                          }
-                                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
-                                          aria-label={`Delete ${income.description}`}
-                                          title="Delete"
-                                        >
-                                          <IonIcon
-                                            icon={trashOutline}
-                                            className="h-3.5 w-3.5"
-                                          />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })()
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </IonCard>
-
-                  {/* Fixed Monthly Bills */}
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                      <div>
-                        <div className="text-slate-200 text-[10px] font-bold uppercase tracking-wider">
-                          Fixed Monthly Bills
-                        </div>
-                        <span className="text-2xl font-extrabold text-white mt-0.5 block font-['Outfit']">
-                          {formatCurrency(totalFixedExpenses)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setIsAddingFixed(!isAddingFixed)}
-                        className="flex items-center justify-center border border-white/5 shadow-md hover:scale-105 active:scale-95 transition-all select-none cursor-pointer"
-                        style={{
-                          width: "30px",
-                          height: "30px",
-                          borderRadius: "50%",
-                          border: "none",
-                          background: isAddingFixed
-                            ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                            : "linear-gradient(to top right, #10b981, #2dd4bf)",
-                          boxShadow: isAddingFixed
-                            ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
-                            : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
-                        }}
-                      >
-                        <IonIcon
-                          icon={isAddingFixed ? closeOutline : addOutline}
-                          className="w-4 h-4 block"
-                          style={{
-                            color: isAddingFixed ? "#4c0519" : "#022c22",
-                          }}
-                        />
-                      </button>
-                    </div>
-
-                    {isAddingFixed && (
-                      <form
-                        onSubmit={handleAddFixedExpense}
-                        className="space-y-3 pt-3 border-b border-white/5 pb-4 animate-fade-in"
-                      >
-                        <IonItem
-                          fill="none"
-                          className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                          style={{
-                            "--background": "transparent",
-                            "--inner-padding-end": "0px",
-                            "--padding-start": "0px",
-                          }}
-                        >
-                          <IonInput
-                            type="text"
-                            required
-                            placeholder="Bill Description (e.g. Rent, Electricity)"
-                            value={newFixedDesc}
-                            onIonInput={(e) => setNewFixedDesc(e.detail.value)}
-                            className="px-3 text-white text-xs placeholder-slate-500"
-                            style={{
-                              "--padding-top": "10px",
-                              "--padding-bottom": "10px",
-                            }}
-                          />
-                        </IonItem>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--inner-padding-end": "0px",
-                              "--padding-start": "0px",
-                            }}
-                          >
-                            <IonInput
-                              type="number"
-                              required
-                              placeholder="Amount (NTD)"
-                              value={newFixedAmount}
-                              onIonInput={(e) =>
-                                setNewFixedAmount(e.detail.value)
-                              }
-                              className="px-3 text-white text-xs placeholder-slate-500"
-                              style={{
-                                "--padding-top": "10px",
-                                "--padding-bottom": "10px",
-                              }}
-                            />
-                          </IonItem>
-
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--inner-padding-end": "0px",
-                              "--padding-start": "0px",
-                            }}
-                          >
-                            <IonInput
-                              type="number"
-                              min="1"
-                              max="31"
-                              required
-                              placeholder="Due Day (1-31)"
-                              value={newFixedDay}
-                              onIonInput={(e) => setNewFixedDay(e.detail.value)}
-                              className="px-3 text-white text-xs placeholder-slate-500 font-mono"
-                              style={{
-                                "--padding-top": "10px",
-                                "--padding-bottom": "10px",
-                              }}
-                            />
-                          </IonItem>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                            Category Group
-                          </label>
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--padding-start": "0px",
-                              "--inner-padding-end": "0px",
-                            }}
-                          >
-                            <div className="w-full px-3 py-1 font-semibold text-slate-200">
-                              <IonSelect
-                                value={newFixedCategory}
-                                onIonChange={(e) =>
-                                  setNewFixedCategory(e.detail.value)
-                                }
-                                interface="popover"
-                                className="text-white text-xs font-sans"
-                                style={{
-                                  "--padding-top": "6px",
-                                  "--padding-bottom": "6px",
-                                }}
-                              >
-                                {sortedCategoriesList.map((cat) => (
-                                  <IonSelectOption
-                                    key={cat.name}
-                                    value={cat.name}
-                                  >
-                                    {cat.name}
-                                  </IonSelectOption>
-                                ))}
-                              </IonSelect>
-                            </div>
-                          </IonItem>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
-                          style={{
-                            background:
-                              "linear-gradient(to right, #10b981, #14b8a6)",
-                            color: "#022c22",
-                            padding: "12px 20px",
-                            borderRadius: "16px",
-                            border: "none",
-                            minHeight: "44px",
-                          }}
-                        >
-                          <IonIcon
-                            icon={checkmarkOutline}
-                            className="w-4 h-4 stroke-[2.5]"
-                            style={{ color: "#022c22" }}
-                          />
-                          <span>Add Recurring Bill</span>
-                        </button>
-                      </form>
-                    )}
-
-                    {fixedExpenses.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 font-semibold leading-normal italic text-center py-4">
-                        No recurring bills configured. Click add to setup.
-                      </p>
-                    ) : (
-                      <div className="space-y-2 mt-3 max-h-56 overflow-y-auto pr-1">
-                        {fixedExpenses.map((bill) => {
-                          const catObj =
-                            Object.values(categories).find(
-                              (c) => c.name === bill.category,
-                            ) || categories.Other;
-                          return (
-                            <div key={bill.id}>
-                              {editingFixedId === bill.id ? (
-                                <form
-                                  onSubmit={(e) =>
-                                    handleSaveEditFixed(e, bill.id)
-                                  }
-                                  className="space-y-2.5 bg-slate-950/50 border border-rose-500/20 rounded-2xl p-3 animate-fade-in"
-                                >
-                                  <IonItem
-                                    fill="none"
-                                    className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                    style={{
-                                      "--background": "transparent",
-                                      "--inner-padding-end": "0px",
-                                      "--padding-start": "0px",
-                                    }}
-                                  >
-                                    <IonInput
-                                      type="text"
-                                      required
-                                      value={editFixedDesc}
-                                      onIonInput={(e) =>
-                                        setEditFixedDesc(e.detail.value)
-                                      }
-                                      className="px-2.5 text-white text-xs"
-                                      style={{
-                                        "--padding-top": "8px",
-                                        "--padding-bottom": "8px",
-                                      }}
-                                    />
-                                  </IonItem>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <IonItem
-                                      fill="none"
-                                      className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                      style={{
-                                        "--background": "transparent",
-                                        "--inner-padding-end": "0px",
-                                        "--padding-start": "0px",
-                                      }}
-                                    >
-                                      <IonInput
-                                        type="number"
-                                        required
-                                        value={editFixedAmount}
-                                        onIonInput={(e) =>
-                                          setEditFixedAmount(e.detail.value)
-                                        }
-                                        className="px-2.5 text-white text-xs"
-                                        style={{
-                                          "--padding-top": "8px",
-                                          "--padding-bottom": "8px",
-                                        }}
-                                      />
-                                    </IonItem>
-                                    <IonItem
-                                      fill="none"
-                                      className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                      style={{
-                                        "--background": "transparent",
-                                        "--inner-padding-end": "0px",
-                                        "--padding-start": "0px",
-                                      }}
-                                    >
-                                      <IonInput
-                                        type="number"
-                                        min="1"
-                                        max="31"
-                                        required
-                                        value={editFixedDay}
-                                        onIonInput={(e) =>
-                                          setEditFixedDay(e.detail.value)
-                                        }
-                                        className="px-2.5 text-white text-xs font-mono"
-                                        style={{
-                                          "--padding-top": "8px",
-                                          "--padding-bottom": "8px",
-                                        }}
-                                      />
-                                    </IonItem>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-[8px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                                      Category
-                                    </label>
-                                    <IonItem
-                                      fill="none"
-                                      className="rounded-xl overflow-hidden bg-slate-900 border border-slate-800 text-xs text-white"
-                                      style={{
-                                        "--background": "transparent",
-                                        "--padding-start": "0px",
-                                        "--inner-padding-end": "0px",
-                                      }}
-                                    >
-                                      <div className="w-full px-2.5 py-0.5">
-                                        <IonSelect
-                                          value={editFixedCategory}
-                                          onIonChange={(e) =>
-                                            setEditFixedCategory(e.detail.value)
-                                          }
-                                          interface="popover"
-                                          className="text-white text-xs font-sans"
-                                        >
-                                          {sortedCategoriesList.map(
-                                            (cat) => (
-                                              <IonSelectOption
-                                                key={cat.name}
-                                                value={cat.name}
-                                              >
-                                                {cat.name}
-                                              </IonSelectOption>
-                                            ),
-                                          )}
-                                        </IonSelect>
-                                      </div>
-                                    </IonItem>
-                                  </div>
-                                  <div className="flex justify-end gap-2 pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingFixedId(null)}
-                                      className="p-1.5 rounded-lg bg-white/5 text-slate-400 hover:text-white"
-                                    >
-                                      <IonIcon
-                                        icon={closeOutline}
-                                        className="w-4 h-4"
-                                      />
-                                    </button>
-                                    <button
-                                      type="submit"
-                                      className="p-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold"
-                                    >
-                                      <IonIcon
-                                        icon={checkmarkOutline}
-                                        className="w-4 h-4 stroke-[2.5]"
-                                      />
-                                    </button>
-                                  </div>
-                                </form>
-                              ) : (
-                                <div className="flex items-center justify-between group bg-white/2 border border-white/5 rounded-xl p-3 hover:border-emerald-500/20 transition-all">
-                                  <div>
-                                    <p className="text-xs font-bold text-white capitalize">
-                                      {bill.description}
-                                    </p>
-                                    <p className="text-[9px] text-slate-300 font-extrabold uppercase mt-0.5 flex items-center gap-1.5 tracking-wide">
-                                      <span
-                                        className={`inline-block w-1.5 h-1.5 rounded-full ${catObj.textColor ? catObj.bgColor + " " + catObj.textColor : "bg-slate-500"}`}
-                                      />
-                                      <span>
-                                        Due Day {bill.due_day} • {bill.category}
-                                      </span>
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs font-extrabold text-rose-400">
-                                      {formatCurrency(bill.amount)}
-                                    </span>
-                                    <div className="flex items-center gap-1 transition-all">
-                                      <button
-                                        onClick={() =>
-                                          handleStartEditFixed(bill)
-                                        }
-                                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-white active:scale-95"
-                                        aria-label={`Edit ${bill.description}`}
-                                        title="Edit"
-                                      >
-                                        <IonIcon
-                                          icon={createOutline}
-                                          className="h-3.5 w-3.5"
-                                        />
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleDeleteFixedExpense(bill.id)
-                                        }
-                                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-300 transition-all hover:text-rose-400 active:scale-95"
-                                        aria-label={`Delete ${bill.description}`}
-                                        title="Delete"
-                                      >
-                                        <IonIcon
-                                          icon={trashOutline}
-                                          className="h-3.5 w-3.5"
-                                        />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </IonCard>
-
-                  {/* Additional Income */}
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20 shadow-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <div>
-                        <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">
-                          Additional Income (This Month)
-                        </div>
-                        <div className="text-xl font-extrabold text-white mt-0.5 font-['Outfit']">
-                          +{formatCurrency(totalAdditional)}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setIsAddingIncome(!isAddingIncome)}
-                        className="flex items-center justify-center border border-white/5 shadow-md hover:scale-105 active:scale-95 transition-all select-none cursor-pointer"
-                        style={{
-                          width: "30px",
-                          height: "30px",
-                          borderRadius: "50%",
-                          border: "none",
-                          background: isAddingIncome
-                            ? "linear-gradient(to top right, #f43f5e, #fb7185)"
-                            : "linear-gradient(to top right, #10b981, #2dd4bf)",
-                          boxShadow: isAddingIncome
-                            ? "0 4px 6px -1px rgba(244, 63, 94, 0.15)"
-                            : "0 4px 6px -1px rgba(16, 185, 129, 0.15)",
-                        }}
-                      >
-                        <IonIcon
-                          icon={isAddingIncome ? closeOutline : addOutline}
-                          className="w-4 h-4 block"
-                          style={{
-                            color: isAddingIncome ? "#4c0519" : "#022c22",
-                          }}
-                        />
-                      </button>
-                    </div>
-
-                    {isAddingIncome && (
-                      <form
-                        onSubmit={handleAddAdditionalIncome}
-                        className="space-y-3 mt-3 pt-3 border-t border-white/5"
-                      >
-                        <IonItem
-                          fill="none"
-                          className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                          style={{
-                            "--background": "transparent",
-                            "--inner-padding-end": "0px",
-                            "--padding-start": "0px",
-                          }}
-                        >
-                          <IonInput
-                            type="number"
-                            step="0.01"
-                            required
-                            placeholder="Amount (NTD)"
-                            value={additionalAmount}
-                            onIonInput={(e) =>
-                              setAdditionalAmount(e.detail.value)
-                            }
-                            className="px-3 text-white text-xs placeholder-slate-500"
-                            style={{
-                              "--padding-top": "10px",
-                              "--padding-bottom": "10px",
-                            }}
-                          />
-                        </IonItem>
-
-                        <IonItem
-                          fill="none"
-                          className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                          style={{
-                            "--background": "transparent",
-                            "--inner-padding-end": "0px",
-                            "--padding-start": "0px",
-                          }}
-                        >
-                          <IonInput
-                            type="text"
-                            placeholder="Description (e.g. Freelance project)"
-                            value={additionalDesc}
-                            onIonInput={(e) =>
-                              setAdditionalDesc(e.detail.value)
-                            }
-                            className="px-3 text-white text-xs placeholder-slate-500"
-                            style={{
-                              "--padding-top": "10px",
-                              "--padding-bottom": "10px",
-                            }}
-                          />
-                        </IonItem>
-
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                            Transfer Date
-                          </label>
-                          <IonItem
-                            fill="none"
-                            className="rounded-xl overflow-hidden bg-slate-950/40 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                            style={{
-                              "--background": "transparent",
-                              "--inner-padding-end": "0px",
-                              "--padding-start": "0px",
-                            }}
-                          >
-                            <IonInput
-                              type="date"
-                              required
-                              value={additionalDate}
-                              onIonInput={(e) =>
-                                setAdditionalDate(e.detail.value)
-                              }
-                              className="px-3 text-white text-xs placeholder-slate-500 font-mono"
-                              style={{
-                                "--padding-top": "10px",
-                                "--padding-bottom": "10px",
-                              }}
-                            />
-                          </IonItem>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
-                          style={{
-                            background:
-                              "linear-gradient(to right, #10b981, #14b8a6)",
-                            color: "#022c22",
-                            padding: "12px 20px",
-                            borderRadius: "16px",
-                            border: "none",
-                            minHeight: "44px",
-                          }}
-                        >
-                          <IonIcon
-                            icon={checkmarkOutline}
-                            className="w-4 h-4 stroke-[2.5]"
-                            style={{ color: "#022c22" }}
-                          />
-                          <span>Add One-Off Income</span>
-                        </button>
-                      </form>
-                    )}
-
-                    {/* Logged Additional Incomes List */}
-                    {additionalIncome.length > 0 && (
-                      <div className="space-y-2 mt-4 pt-4 border-t border-white/5">
-                        <label className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1 mb-1">
-                          Logged One-Off Income History
-                        </label>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {additionalIncome.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between bg-slate-950/40 border border-white/5 rounded-xl p-3 hover:border-emerald-500/20 transition-all"
-                            >
-                              <div>
-                                <p className="text-xs font-bold text-white capitalize">
-                                  {item.description}
-                                </p>
-                                <p className="text-[9px] text-slate-400 font-extrabold uppercase mt-0.5 tracking-wide">
-                                  {new Date(item.date).toLocaleDateString("en-US", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2.5">
-                                <span className="text-xs font-extrabold text-emerald-400">
-                                  +{formatCurrency(item.amount)}
-                                </span>
-                                <button
-                                  onClick={() => handleDeleteAdditionalIncome(item.id)}
-                                  className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-slate-500 hover:text-rose-400 active:scale-95 transition-all cursor-pointer flex"
-                                  title="Delete income entry"
-                                >
-                                  <IonIcon
-                                    icon={trashOutline}
-                                    className="w-3.5 h-3.5 block"
-                                  />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </IonCard>
-                </div>
+                <CashFlowTab
+                  baselineIncomes={baselineIncomes}
+                  fixedExpenses={fixedExpenses}
+                  additionalIncome={additionalIncome}
+                  currentDay={currentDay}
+                  formatCurrency={formatCurrency}
+                  totalBaseline={totalBaseline}
+                  totalBaselineConfigured={totalBaselineConfigured}
+                  totalFixedExpenses={totalFixedExpenses}
+                  totalAdditional={totalAdditional}
+                  sortedCategoriesList={sortedCategoriesList}
+                  onAddBaselineIncome={handleAddBaselineIncome}
+                  onSaveEditBaseline={handleSaveEditBaseline}
+                  onDeleteBaselineIncome={handleDeleteBaselineIncome}
+                  onAddFixedExpense={handleAddFixedExpense}
+                  onSaveEditFixed={handleSaveEditFixed}
+                  onDeleteFixedExpense={handleDeleteFixedExpense}
+                  onAddAdditionalIncome={handleAddAdditionalIncome}
+                  onSaveEditAdditional={handleSaveEditAdditional}
+                  onDeleteAdditionalIncome={handleDeleteAdditionalIncome}
+                />
               )}
 
-              {/* 4. HISTORY TAB (With sliding swipe gestures) */}
+              {/* 3. HISTORY TAB */}
               {activeTab === "history" && (
-                <div className="flex flex-col gap-6 animate-fade-in">
-                  <DailyConsumptionChart
-                    expenses={expenses}
-                    formatCurrency={formatCurrency}
-                    currentMonthName={currentMonthName}
-                  />
-
-                  <IonCard className="glassmorphism rounded-3xl p-5 mx-0 border border-white/5 bg-slate-950/20 shadow-xl">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                        Recent Transactions
-                      </h3>
-                      <span className="text-[10px] text-slate-300 font-extrabold uppercase tracking-wide">
-                        {filteredExpenses.length} of {expenses.length} item(s)
-                      </span>
-                    </div>
-
-                    {expenses.length === 0 ? (
-                      <div className="text-center py-12 flex flex-col items-center justify-center gap-2">
-                        <div className="p-3 rounded-2xl bg-white/3 border border-white/5 text-slate-600">
-                          <IonIcon
-                            icon={helpCircleOutline}
-                            style={{ fontSize: "32px" }}
-                          />
-                        </div>
-                        <p className="text-xs text-slate-200 font-bold uppercase tracking-wider">
-                          No Variable Expenses Logged
-                        </p>
-                        <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                          Add expenses in "Quick Log" to populate transaction
-                          history.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto]">
-                          <IonSearchbar
-                            value={transactionSearch}
-                            onIonInput={(e) =>
-                              setTransactionSearch(e.detail.value || "")
-                            }
-                            placeholder="Search transactions"
-                            debounce={150}
-                            className="p-0 text-xs"
-                            style={{
-                              "--background": "#0e1320",
-                              "--border-radius": "12px",
-                              "--box-shadow": "none",
-                              "--color": "#f8fafc",
-                              "--icon-color": "#94a3b8",
-                              "--placeholder-color": "#64748b",
-                              "--clear-button-color": "#94a3b8",
-                              minHeight: "42px",
-                            }}
-                          />
-
-                          <div className="rounded-xl border border-white/5 bg-slate-950/40 px-2">
-                            <IonSelect
-                              value={transactionCategoryFilter}
-                              onIonChange={(e) =>
-                                setTransactionCategoryFilter(e.detail.value)
-                              }
-                              interface="popover"
-                              aria-label="Filter transactions by category"
-                              className="min-h-[42px] min-w-[135px] text-xs font-extrabold uppercase tracking-wide text-slate-200"
-                            >
-                              <IonSelectOption value="all">
-                                All Categories
-                              </IonSelectOption>
-                              {sortedCategoriesList.map((cat) => (
-                                <IonSelectOption
-                                  key={cat.name}
-                                  value={cat.name}
-                                >
-                                  {cat.name}
-                                </IonSelectOption>
-                              ))}
-                            </IonSelect>
-                          </div>
-
-                          <div className="rounded-xl border border-white/5 bg-slate-950/40 px-2">
-                            <IonSelect
-                              value={transactionDateFilter}
-                              onIonChange={(e) =>
-                                setTransactionDateFilter(e.detail.value)
-                              }
-                              interface="popover"
-                              aria-label="Filter transactions by date"
-                              className="min-h-[42px] min-w-[105px] text-xs font-extrabold uppercase tracking-wide text-slate-200"
-                            >
-                              <IonSelectOption value="all">
-                                This Month
-                              </IonSelectOption>
-                              <IonSelectOption value="week">
-                                Last 7 Days
-                              </IonSelectOption>
-                              <IonSelectOption value="today">
-                                Today
-                              </IonSelectOption>
-                            </IonSelect>
-                          </div>
-                        </div>
-
-                        {hasTransactionFilters && (
-                          <button
-                            type="button"
-                            onClick={resetTransactionFilters}
-                            className="self-end text-[9px] font-black uppercase tracking-wider text-slate-400 transition-all hover:text-white"
-                          >
-                            Clear filters
-                          </button>
-                        )}
-
-                        {filteredExpenses.length === 0 ? (
-                          <div className="rounded-2xl border border-white/5 bg-slate-950/30 px-4 py-10 text-center">
-                            <p className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
-                              No Matching Transactions
-                            </p>
-                            <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-400">
-                              Try a different search, category, or date filter.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="rounded-2xl overflow-hidden bg-transparent max-h-[420px] overflow-y-auto pr-1">
-                            <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest text-right mb-2 pr-1 opacity-70">
-                              ← Swipe Left to delete
-                            </p>
-
-                            <IonList
-                              className="bg-transparent p-0 m-0 space-y-2"
-                              style={{ background: "transparent" }}
-                            >
-                              {filteredExpenses.map((expense) => {
-                                const catObj = getCategoryConfig(
-                                  expense.category,
-                                );
-                                return (
-                                  <IonItemSliding
-                                    key={expense.id}
-                                    className="rounded-xl overflow-hidden"
-                                  >
-                                    <IonItem
-                                      className="bg-transparent border border-white/5 rounded-xl hover:border-emerald-500/20 transition-all"
-                                      style={{
-                                        "--background": "#0e1320",
-                                        "--padding-start": "10px",
-                                        "--inner-padding-end": "10px",
-                                        "--border-style": "none",
-                                        "--min-height": "62px",
-                                      }}
-                                    >
-                                      <div className="flex items-center gap-3.5 w-full py-1.5">
-                                        <div
-                                          className={`p-2 rounded-xl ${catObj.bgColor} border ${catObj.borderColor} shrink-0 flex`}
-                                        >
-                                          {getCategoryIcon(expense.category)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-bold text-white capitalize truncate">
-                                            {expense.description}
-                                          </p>
-                                          <div className="text-[9px] text-slate-400 font-extrabold uppercase flex items-center gap-1.5 mt-0.5 tracking-wide">
-                                            <IonSelect
-                                              value={expense.category}
-                                              onIonChange={(e) =>
-                                                handleUpdateExpenseCategory(
-                                                  expense,
-                                                  e.detail.value,
-                                                )
-                                              }
-                                              interface="popover"
-                                              aria-label={`Change category for ${expense.description}`}
-                                              className="min-w-[82px] max-w-[132px] rounded-md border border-white/5 bg-white/3 px-1 text-[9px] font-extrabold uppercase tracking-wide text-slate-300"
-                                              style={{
-                                                "--padding-start": "0px",
-                                                "--padding-end": "0px",
-                                                "--padding-top": "0px",
-                                                "--padding-bottom": "0px",
-                                              }}
-                                            >
-                                              {sortedCategoriesList.map(
-                                                (cat) => (
-                                                  <IonSelectOption
-                                                    key={cat.name}
-                                                    value={cat.name}
-                                                  >
-                                                    {cat.name}
-                                                  </IonSelectOption>
-                                                ),
-                                              )}
-                                            </IonSelect>
-                                            <span>•</span>
-                                            <span>
-                                              {new Date(
-                                                expense.created_at ||
-                                                  expense.date,
-                                              ).toLocaleDateString("en-US", {
-                                                day: "numeric",
-                                                month: "short",
-                                              })}
-                                              ,{" "}
-                                              {new Date(
-                                                expense.created_at ||
-                                                  expense.date,
-                                              ).toLocaleTimeString("en-US", {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                                hour12: false,
-                                              })}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <div className="shrink-0 flex items-center gap-2">
-                                          <span className="font-extrabold text-white text-xs">
-                                            -{formatCurrency(expense.amount)}
-                                          </span>
-                                          <button
-                                            onClick={() => handleStartEditExpense(expense)}
-                                            className="flex h-6 w-6 items-center justify-center rounded-lg border border-white/5 bg-white/5 text-slate-400 hover:text-white transition-all active:scale-90 cursor-pointer"
-                                            title="Edit transaction"
-                                          >
-                                            <IonIcon
-                                              icon={createOutline}
-                                              className="h-3 w-3"
-                                            />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </IonItem>
-
-                                    <IonItemOptions
-                                      side="start"
-                                      className="h-full"
-                                    >
-                                      <IonItemOption
-                                        color="primary"
-                                        onClick={() =>
-                                          handleStartEditExpense(expense)
-                                        }
-                                        className="px-4"
-                                        style={{
-                                          "--background": "#3b82f6",
-                                          "font-weight": "bold",
-                                          "font-size": "11px",
-                                          "text-transform": "uppercase",
-                                          "letter-spacing": "0.05em",
-                                        }}
-                                      >
-                                        <IonIcon
-                                          icon={createOutline}
-                                          slot="icon-only"
-                                          className="w-5 h-5 block"
-                                        />
-                                      </IonItemOption>
-                                    </IonItemOptions>
-
-                                    <IonItemOptions
-                                      side="end"
-                                      className="h-full"
-                                    >
-                                      <IonItemOption
-                                        color="danger"
-                                        onClick={() =>
-                                          handleDeleteExpense(expense.id)
-                                        }
-                                        className="px-4"
-                                        style={{
-                                          "--background": "#ef4444",
-                                          "font-weight": "bold",
-                                          "font-size": "11px",
-                                          "text-transform": "uppercase",
-                                          "letter-spacing": "0.05em",
-                                        }}
-                                      >
-                                        <IonIcon
-                                          icon={trashOutline}
-                                          slot="icon-only"
-                                          className="w-5 h-5 block"
-                                        />
-                                      </IonItemOption>
-                                    </IonItemOptions>
-                                  </IonItemSliding>
-                                );
-                              })}
-                            </IonList>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </IonCard>
-                </div>
+                <HistoryTab
+                  expenses={expenses}
+                  formatCurrency={formatCurrency}
+                  currentMonthName={currentMonthName}
+                  sortedCategoriesList={sortedCategoriesList}
+                  getCategoryConfig={getCategoryConfig}
+                  getCategoryIcon={getCategoryIcon}
+                  onStartEditExpense={handleStartEditExpense}
+                  onDeleteExpense={handleDeleteExpense}
+                  onUpdateExpenseCategory={handleUpdateExpenseCategory}
+                />
               )}
 
-              {/* 5. PROFILE TAB (Inline Full Screen Page) */}
+              {/* 4. PROFILE TAB */}
               {activeTab === "profile" && (
-                <div className="flex flex-col gap-6 animate-fade-in pb-12">
-                  {profileView === "profile" ? (
-                    <>
-                      {/* Active Profile Overview Card */}
-                      <div className="glassmorphism rounded-3xl p-6 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col items-center justify-center text-center gap-4">
-                        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-emerald-500/10 blur-[50px] pointer-events-none" />
-
-                        {/* Big Avatar */}
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-3xl flex items-center justify-center shadow-lg shadow-emerald-500/20 border-2 border-white/10 select-none">
-                          {session?.user?.email
-                            ? session.user.email[0].toUpperCase()
-                            : "U"}
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest">
-                            Active Session
-                          </div>
-                          <h4 className="text-base font-extrabold text-white tracking-tight font-['Outfit'] select-all">
-                            {session?.user?.email || "User Account"}
-                          </h4>
-                        </div>
-                      </div>
-
-                      {/* Action buttons list */}
-                      <div className="flex flex-col gap-3">
-                        <button
-                          onClick={() => setProfileView("settings")}
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 border border-white/10 text-white font-extrabold text-xs uppercase tracking-wide glassmorphism"
-                          style={{
-                            padding: "14px 20px",
-                            borderRadius: "16px",
-                            minHeight: "48px",
-                          }}
-                        >
-                          <IonIcon
-                            icon={settingsOutline}
-                            className="w-4.5 h-4.5 text-slate-300"
-                          />
-                          <span>Settings & Currency</span>
-                        </button>
-
-                        <button
-                          onClick={onSignOut}
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-rose-500/10 uppercase tracking-wide font-extrabold text-xs"
-                          style={{
-                            background:
-                              "linear-gradient(to right, #f43f5e, #e11d48)",
-                            color: "#fff",
-                            padding: "14px 20px",
-                            borderRadius: "16px",
-                            border: "none",
-                            minHeight: "48px",
-                          }}
-                        >
-                          <IonIcon
-                            icon={logOutOutline}
-                            className="w-4.5 h-4.5"
-                          />
-                          <span>Log Out of Account</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : profileView === "settings" ? (
-                    <>
-                      {/* Page Title */}
-                      <div className="flex items-center justify-end border-b border-white/5 pb-3">
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-right">
-                          Application Settings
-                        </h4>
-                      </div>
-
-                      {/* Primary Currency Card */}
-                      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                        <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                          Primary Currency
-                        </label>
-
-                        <div className="w-full px-3 py-1.5 font-semibold text-slate-200 rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs">
-                          <IonSelect
-                            value={selectedCurrency}
-                            onIonChange={(e) => {
-                              const newCurrency = e.detail.value;
-                              setSelectedCurrency(newCurrency);
-                              localStorage.setItem(
-                                "easy_moneytoring_currency",
-                                newCurrency,
-                              );
-                            }}
-                            interface="popover"
-                            className="text-white text-xs font-sans w-full"
-                            style={{
-                              "--padding-top": "8px",
-                              "--padding-bottom": "8px",
-                            }}
-                          >
-                            <IonSelectOption value="NTD">
-                              New Taiwan Dollar (NT$)
-                            </IonSelectOption>
-                            <IonSelectOption value="USD">
-                              US Dollar ($)
-                            </IonSelectOption>
-                            <IonSelectOption value="EUR">
-                              Euro (€)
-                            </IonSelectOption>
-                            <IonSelectOption value="JPY">
-                              Japanese Yen (¥)
-                            </IonSelectOption>
-                            <IonSelectOption value="GBP">
-                              British Pound (£)
-                            </IonSelectOption>
-                          </IonSelect>
-                        </div>
-
-                        <p className="text-[9px] text-slate-400 font-semibold leading-normal italic px-1">
-                          All cash flows, budgets, expenditures, and logged
-                          history will format automatically to your chosen
-                          currency.
-                        </p>
-                      </div>
-
-                      {/* Custom Categories Trigger Card */}
-                      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                        <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                          Custom Categories & Keywords
-                        </label>
-
-                        <button
-                          onClick={() => setProfileView("categories")}
-                          className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-between border border-white/10 text-white font-extrabold text-xs uppercase tracking-wide glassmorphism"
-                          style={{
-                            padding: "14px 16px",
-                            borderRadius: "16px",
-                            minHeight: "48px",
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <IonIcon
-                              icon={settingsOutline}
-                              className="w-4 h-4 text-emerald-400"
-                            />
-                            <span>Manage Categories</span>
-                          </div>
-                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">
-                            Configure →
-                          </span>
-                        </button>
-                      </div>
-
-                      {/* n8n Webhook Alerts Integration Card */}
-                      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                            n8n Webhook Alerts
-                          </label>
-                          <IonToggle
-                            checked={n8nEnabled}
-                            onIonChange={(e) => {
-                              const checked = e.detail.checked;
-                              setN8nEnabled(checked);
-                              localStorage.setItem("easy_moneytoring_n8n_enabled", String(checked));
-                            }}
-                            style={{
-                              "--background": "rgba(255,255,255,0.05)",
-                              "--background-checked": "#10b981",
-                              "--handle-background-checked": "#022c22",
-                            }}
-                          />
-                        </div>
-
-                        {n8nEnabled && (
-                          <div className="space-y-4 animate-fade-in">
-                            {/* Webhook URL Input */}
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                                Webhook Endpoint URL
-                              </label>
-                              <IonItem
-                                fill="none"
-                                className="rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                                style={{
-                                  "--background": "transparent",
-                                  "--inner-padding-end": "0px",
-                                  "--padding-start": "0px",
-                                }}
-                              >
-                                <IonInput
-                                  type="url"
-                                  placeholder="e.g. http://localhost:5678/webhook/expense-added"
-                                  value={n8nUrl}
-                                  onIonInput={(e) => {
-                                    const val = e.detail.value;
-                                    setN8nUrl(val);
-                                    localStorage.setItem("easy_moneytoring_n8n_url", val);
-                                  }}
-                                  className="px-3 text-white text-xs placeholder-slate-500"
-                                  style={{
-                                    "--padding-top": "10px",
-                                    "--padding-bottom": "10px",
-                                  }}
-                                />
-                              </IonItem>
-                            </div>
-
-                            {/* Nickname Input */}
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider pl-1">
-                                Who Spent (Nickname)
-                              </label>
-                              <IonItem
-                                fill="none"
-                                className="rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                                style={{
-                                  "--background": "transparent",
-                                  "--inner-padding-end": "0px",
-                                  "--padding-start": "0px",
-                                }}
-                              >
-                                <IonInput
-                                  type="text"
-                                  placeholder="e.g. Dad, Mom, Brother"
-                                  value={n8nNickname}
-                                  onIonInput={(e) => {
-                                    const val = e.detail.value;
-                                    setN8nNickname(val);
-                                    localStorage.setItem("easy_moneytoring_n8n_nickname", val);
-                                  }}
-                                  className="px-3 text-white text-xs placeholder-slate-500"
-                                  style={{
-                                    "--padding-top": "10px",
-                                    "--padding-bottom": "10px",
-                                  }}
-                                />
-                              </IonItem>
-                            </div>
-
-                            {/* Send Test Webhook Button */}
-                            <button
-                              type="button"
-                              onClick={handleSendTestWebhook}
-                              disabled={!n8nUrl}
-                              className="w-full hover:brightness-105 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg uppercase tracking-wide font-extrabold text-[10px] text-white border border-white/10"
-                              style={{
-                                background: "rgba(255,255,255,0.05)",
-                                padding: "10px 16px",
-                                borderRadius: "12px",
-                                minHeight: "38px",
-                              }}
-                            >
-                              <span>Send Test Webhook</span>
-                            </button>
-                          </div>
-                        )}
-
-                        <p className="text-[9px] text-slate-400 font-semibold leading-normal italic px-1">
-                          Sends expense logs in real-time to your local n8n workflows for broadcast notifications in your family chat.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => setProfileView("profile")}
-                        className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 border border-emerald-500/20 text-emerald-300 font-extrabold text-xs uppercase tracking-wide"
-                        style={{
-                          background: "rgba(16, 185, 129, 0.1)",
-                          padding: "14px 20px",
-                          borderRadius: "16px",
-                          minHeight: "48px",
-                        }}
-                      >
-                        <span>Save & Return to Profile</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {/* Page Title */}
-                      <div className="flex items-center justify-end border-b border-white/5 pb-3">
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-right">
-                          Category Customizer
-                        </h4>
-                      </div>
-
-                      {/* Active Categories List Card */}
-                      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                        <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                          Active Categories
-                        </label>
-
-                        <div className="space-y-3 pr-1">
-                          {Object.keys(userCategories)
-                            .sort((a, b) => (userCategories[a].display_order || 0) - (userCategories[b].display_order || 0))
-                            .map((key, index, sortedKeys) => {
-                              const cat = userCategories[key];
-                              const isOther = key === "Other";
-                              return (
-                                <div
-                                  key={key}
-                                  className="flex items-center justify-between bg-slate-950/40 border border-white/5 rounded-2xl p-4 transition-all hover:border-white/10"
-                                >
-                                  <div className="flex items-center gap-4 min-w-0 flex-1 pr-2">
-                                    <div
-                                      className={`p-3 rounded-2xl ${cat.bgColor} border ${cat.borderColor} flex shrink-0 shadow-inner`}
-                                    >
-                                      {getCategoryIcon(key, "w-6 h-6")}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-bold text-white truncate capitalize">
-                                        {cat.name}
-                                      </p>
-                                      <p className="text-[10.5px] text-slate-400 truncate italic font-semibold mt-1 leading-normal">
-                                        {cat.keywords && cat.keywords.length > 0
-                                          ? cat.keywords.join(", ")
-                                          : "No keywords configured"}
-                                      </p>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {/* Reorder Buttons */}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleMoveCategory(key, "up")}
-                                      disabled={index === 0}
-                                      className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer flex"
-                                      title="Move Up"
-                                    >
-                                      <IonIcon
-                                        icon={arrowUpOutline}
-                                        className="w-4.5 h-4.5 block"
-                                      />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleMoveCategory(key, "down")}
-                                      disabled={index === sortedKeys.length - 1}
-                                      className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer flex"
-                                      title="Move Down"
-                                    >
-                                      <IonIcon
-                                        icon={arrowDownOutline}
-                                        className="w-4.5 h-4.5 block"
-                                      />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleStartEditCategory(key)}
-                                      className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white transition-all cursor-pointer flex"
-                                      title="Edit Category"
-                                    >
-                                      <IonIcon
-                                        icon={createOutline}
-                                        className="w-4.5 h-4.5 block"
-                                      />
-                                    </button>
-                                    {!isOther && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteCategory(key)}
-                                        className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-rose-400 transition-all cursor-pointer flex"
-                                        title="Delete Category"
-                                      >
-                                        <IonIcon
-                                          icon={trashOutline}
-                                          className="w-4.5 h-4.5 block"
-                                        />
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-
-                      {/* Add / Edit Category Form Card */}
-                      <div className="glassmorphism rounded-3xl p-5 border border-white/5 bg-slate-950/20 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                            {editingCatKey
-                              ? `Edit "${editingCatKey}"`
-                              : "Add Custom Category"}
-                          </label>
-                          {editingCatKey && (
-                            <button
-                              type="button"
-                              onClick={handleCancelEditCategory}
-                              className="text-[9px] text-rose-400 font-black uppercase tracking-wider hover:underline"
-                            >
-                              Cancel Edit
-                            </button>
-                          )}
-                        </div>
-
-                        <form
-                          onSubmit={handleSaveCategory}
-                          className="space-y-5"
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {/* Name Input */}
-                            <IonItem
-                              lines="none"
-                              className="rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                              style={{
-                                "--background": "transparent",
-                                "--inner-padding-end": "0px",
-                                "--padding-start": "0px",
-                              }}
-                            >
-                              <IonInput
-                                type="text"
-                                required
-                                placeholder="Category Name"
-                                value={catEditName}
-                                onIonInput={(e) =>
-                                  setCatEditName(e.detail.value)
-                                }
-                                className="px-3 text-white text-xs placeholder-slate-500 font-semibold"
-                                style={{
-                                  "--padding-top": "10px",
-                                  "--padding-bottom": "10px",
-                                }}
-                              />
-                            </IonItem>
-
-                            {/* Keywords Input */}
-                            <IonItem
-                              lines="none"
-                              className="rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800 focus-within:border-emerald-500/60 transition-all font-sans text-xs text-white"
-                              style={{
-                                "--background": "transparent",
-                                "--inner-padding-end": "0px",
-                                "--padding-start": "0px",
-                              }}
-                            >
-                              <IonInput
-                                type="text"
-                                placeholder="Keywords (split by ',')"
-                                value={catEditKeywords}
-                                onIonInput={(e) =>
-                                  setCatEditKeywords(e.detail.value)
-                                }
-                                className="px-3 text-white text-xs placeholder-slate-500 font-semibold"
-                                style={{
-                                  "--padding-top": "10px",
-                                  "--padding-bottom": "10px",
-                                }}
-                              />
-                            </IonItem>
-                          </div>
-
-                          {/* Color Picker Swatches */}
-                          <div className="space-y-2">
-                            <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                              Theme Color Accent
-                            </label>
-                            <div className="flex items-center flex-wrap gap-4 pl-1">
-                              {Object.keys(colorHexMap).map((colorName) => {
-                                const hex = colorHexMap[colorName];
-                                const isSelected = catEditColor === colorName;
-                                return (
-                                  <button
-                                    key={colorName}
-                                    type="button"
-                                    onClick={() => setCatEditColor(colorName)}
-                                    className="w-10 h-10 rounded-full transition-all border cursor-pointer relative flex items-center justify-center shadow-md"
-                                    style={{
-                                      backgroundColor: hex,
-                                      borderColor: isSelected
-                                        ? "#ffffff"
-                                        : "rgba(255,255,255,0.1)",
-                                      transform: isSelected
-                                        ? "scale(1.15)"
-                                        : "scale(1)",
-                                      boxShadow: isSelected
-                                        ? `0 0 14px ${hex}`
-                                        : "none",
-                                    }}
-                                    title={colorName}
-                                  >
-                                    {isSelected && (
-                                      <span className="text-xs text-slate-950 font-black">
-                                        ✓
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Icon Picker Grid */}
-                          <div className="space-y-2">
-                            <label className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block ml-1">
-                              Category Icon
-                            </label>
-                            <div className="grid grid-cols-4 gap-3 bg-slate-950/40 p-4 rounded-2xl border border-white/5">
-                              {Object.keys(iconMap).map((iconName) => {
-                                const isSelected = catEditIcon === iconName;
-                                return (
-                                  <button
-                                    key={iconName}
-                                    type="button"
-                                    onClick={() => setCatEditIcon(iconName)}
-                                    className={`p-4 rounded-2xl border transition-all flex items-center justify-center cursor-pointer ${
-                                      isSelected
-                                        ? "bg-emerald-500/20 border-emerald-500/60 text-emerald-400 shadow-lg shadow-emerald-500/10 scale-105"
-                                        : "bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-white/5"
-                                    }`}
-                                  >
-                                    <IonIcon
-                                      icon={iconMap[iconName]}
-                                      className="w-6.5 h-6.5 block"
-                                      style={{ fontSize: "26px" }}
-                                    />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <button
-                            type="submit"
-                            className="w-full hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/10 uppercase tracking-wide font-extrabold text-xs"
-                            style={{
-                              background:
-                                "linear-gradient(to right, #10b981, #14b8a6)",
-                              color: "#022c22",
-                              padding: "14px 20px",
-                              borderRadius: "16px",
-                              border: "none",
-                              minHeight: "48px",
-                            }}
-                          >
-                            <IonIcon
-                              icon={checkmarkOutline}
-                              className="w-4 h-4 stroke-[2.5]"
-                              style={{ color: "#022c22" }}
-                            />
-                            <span>
-                              {editingCatKey
-                                ? "Save Category"
-                                : "Create Category"}
-                            </span>
-                          </button>
-                        </form>
-                      </div>
-                    </>
-                  )}
-                </div>
+                <ProfileTab
+                  session={session}
+                  onSignOut={onSignOut}
+                  selectedCurrency={selectedCurrency}
+                  onCurrencyChange={(newCurrency) => {
+                    setSelectedCurrency(newCurrency);
+                    localStorage.setItem("easy_moneytoring_currency", newCurrency);
+                  }}
+                  userCategories={userCategories}
+                  getCategoryIcon={getCategoryIcon}
+                  colorHexMap={colorHexMap}
+                  iconMap={iconMap}
+                  sortedCategoriesList={sortedCategoriesList}
+                  n8nEnabled={n8nEnabled}
+                  onN8nToggle={(checked) => {
+                    setN8nEnabled(checked);
+                    localStorage.setItem("easy_moneytoring_n8n_enabled", String(checked));
+                  }}
+                  n8nUrl={n8nUrl}
+                  onN8nUrlChange={(val) => {
+                    setN8nUrl(val);
+                    localStorage.setItem("easy_moneytoring_n8n_url", val);
+                  }}
+                  n8nNickname={n8nNickname}
+                  onN8nNicknameChange={(val) => {
+                    setN8nNickname(val);
+                    localStorage.setItem("easy_moneytoring_n8n_nickname", val);
+                  }}
+                  onSendTestWebhook={handleSendTestWebhook}
+                  onSaveCategory={handleSaveCategory}
+                  onReorderCategories={handleReorderCategories}
+                />
               )}
             </>
           )}
