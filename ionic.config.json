@@ -1,0 +1,7 @@
+{
+  "name": "easy-moneytoring",
+  "type": "react-vite",
+  "integrations": {
+    "capacitor": {}
+  }
+}

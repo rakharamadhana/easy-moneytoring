@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* Bulletproof mobile containment to completely prevent any horizontal scrolling */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+  overflow-x: hidden !important;
+  position: relative;
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  max-width: 100vw;
+  min-height: 100%;
+  overflow-x: hidden !important;
+  position: relative;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0b0f19; /* Deep elegant navy/black background */
+  color: #f3f4f6; /* Gray 100 */
+}
+
+/* Custom Scrollbar for Premium Feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* Smooth active states & micro-interactions */
+.glassmorphism {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glassmorphism-light {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Category gradients for cards */
+.category-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Padding safety for iOS/native bottom bars */
+.pb-safe {
+  padding-bottom: min(20px, env(safe-area-inset-bottom));
+}
+
+/* Global high-visibility Ionic overrides to ensure crisp, high-contrast fonts */
+:root {
+  --ion-font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+ion-content {
+  --color: #f3f4f6 !important;
+}
+
+ion-label, ion-card-title, ion-card-subtitle, ion-title, ion-input, ion-textarea, ion-select, ion-select-option, ion-button {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* Force standard font usage */
+.font-sans {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+
+/* Completely remove all top/bottom divider lines, borders, shadows, and pseudo-element stripes from header and tab bar */
+ion-header, ion-toolbar, ion-tab-bar {
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  --border-width: 0px !important;
+  --border-style: none !important;
+  --border-color: transparent !important;
+  --box-shadow: none !important;
+}
+
+ion-toolbar::part(background) {
+  border: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+ion-tab-bar::part(background) {
+  border: none !important;
+  border-top: none !important;
+  box-shadow: none !important;
+}
+
+/* Strip Ionic's iOS and Android shadow DOM pseudo-elements that display 1px background-image borders */
+ion-header::after, 
+.header-ios::after, 
+.header-md::after,
+ion-footer::before,
+ion-tab-bar::before,
+.tab-bar-ios::before,
+.tab-bar-md::before {
+  background: none !important;
+  background-image: none !important;
+  display: none !important;
+  opacity: 0 !important;
+  height: 0px !important;
+  border: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Ensure all dashboard page and modal inputs have premium, elegant padding for text and placeholders */
+main ion-input,
+ion-modal ion-input {
+  --padding-start: 14px !important;
+  --padding-end: 14px !important;
+}
+
+
+/* Enable overflow visible on ion-tab-bar and its shadow DOM part to support raised central button */
+ion-tab-bar {
+  overflow: visible !important;
+}
+
+ion-tab-bar::part(tab-bar) {
+  overflow: visible !important;
+}
+
+/* Force datetime inputs and WebKit datetime inner edit blocks to be pure white text on dark background */
+input[type="datetime-local"],
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper,
+input[type="datetime-local"]::-webkit-datetime-edit-text,
+input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
+  color: #ffffff !important;
+}
+
