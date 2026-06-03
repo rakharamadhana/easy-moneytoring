@@ -258,12 +258,12 @@ const iconMap = {
 };
 
 const colorHexMap = {
-  amber: "#fbbf24",
-  violet: "#a78bfa",
+  emerald: "#10b981",
+  indigo: "#6366f1",
   rose: "#f43f5e",
-  indigo: "#818cf8",
-  sky: "#38bdf8",
-  emerald: "#34d399",
+  amber: "#f59e0b",
+  sky: "#0ea5e9",
+  violet: "#8b5cf6",
   slate: "#94a3b8",
 };
 
